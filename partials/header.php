@@ -1,5 +1,9 @@
 <?php
 $u = $_SESSION['user'];
+$roleKey = norm_role($u['role']);
+$roleFile = ROLE_FILES[$roleKey] ?? 'index.php';
+$menus = ROLE_MENUS[$roleKey] ?? [];
+$activeKey = str_replace('.php', '', $active ?? '');
 $flash = flash();
 ?>
 <!doctype html>
@@ -14,12 +18,12 @@ $flash = flash();
 <body class="app">
 <header class="topbar">
     <strong>INVENTARIS BARANG</strong>
-    <form class="who" action="logout.php" method="post"><?= e($u['nama']) ?> <small>(<?= e(ROLES[$u['role']]) ?>)</small> <button class="linkbtn">Keluar</button></form>
+    <form class="who" action="logout.php" method="post"><?= e($u['nama']) ?> <small>(<?= e(ROLES[$u['role']] ?? $u['role']) ?>)</small> <button class="linkbtn">Keluar</button></form>
 </header>
 <div class="shell">
 <nav class="menu" aria-label="Menu utama">
-<?php foreach (PAGES as $file => [$name, $roles]): if (!in_array($u['role'], $roles, true)) continue; ?>
-    <a href="<?= $file ?>"<?= $file === $active ? ' class="on" aria-current="page"' : '' ?>><?= e($name) ?></a>
+<?php foreach ($menus as $fitur => $label): ?>
+    <a href="<?= e("$roleFile?fitur=$fitur") ?>"<?= $fitur === $activeKey ? ' class="on" aria-current="page"' : '' ?>><?= e($label) ?></a>
 <?php endforeach; ?>
 </nav>
 <main>

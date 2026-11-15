@@ -1,12 +1,6 @@
 {
     "users": [
         {
-            "email": "teknisi@polban.ac.id",
-            "nama": "Teknisi Lab",
-            "role": "teknisi",
-            "hash": "$2y$12$elnWViB9rmQp\/\/0GQc.FvujWnl5m0a0GKVUvRXhTmS3\/HpoBknKom"
-        },
-        {
             "email": "kalab@polban.ac.id",
             "nama": "Kepala Lab",
             "role": "kalab",
@@ -14,8 +8,14 @@
         },
         {
             "email": "kajur@polban.ac.id",
-            "nama": "Kepala Jurusan",
+            "nama": "Ketua Jurusan",
             "role": "kajur",
+            "hash": "$2y$12$elnWViB9rmQp\/\/0GQc.FvujWnl5m0a0GKVUvRXhTmS3\/HpoBknKom"
+        },
+        {
+            "email": "teknisi@polban.ac.id",
+            "nama": "Teknisi Lab",
+            "role": "teknisi",
             "hash": "$2y$12$elnWViB9rmQp\/\/0GQc.FvujWnl5m0a0GKVUvRXhTmS3\/HpoBknKom"
         },
         {
@@ -25,9 +25,21 @@
             "hash": "$2y$12$elnWViB9rmQp\/\/0GQc.FvujWnl5m0a0GKVUvRXhTmS3\/HpoBknKom"
         },
         {
+            "email": "dosen@polban.ac.id",
+            "nama": "Dosen Pengampu",
+            "role": "dosen",
+            "hash": "$2y$12$elnWViB9rmQp\/\/0GQc.FvujWnl5m0a0GKVUvRXhTmS3\/HpoBknKom"
+        },
+        {
+            "email": "mhs@polban.ac.id",
+            "nama": "Mahasiswa Contoh",
+            "role": "mhs",
+            "hash": "$2y$12$elnWViB9rmQp\/\/0GQc.FvujWnl5m0a0GKVUvRXhTmS3\/HpoBknKom"
+        },
+        {
             "email": "mahasiswa@polban.ac.id",
             "nama": "Mahasiswa Contoh",
-            "role": "mahasiswa",
+            "role": "mhs",
             "hash": "$2y$12$elnWViB9rmQp\/\/0GQc.FvujWnl5m0a0GKVUvRXhTmS3\/HpoBknKom"
         }
     ],
@@ -80,18 +92,41 @@
             "catatan": ""
         }
     ],
-    "permintaan": [
+    "pengajuan_dosen": [
         {
             "id": 1,
-            "tanggal": "2026-11-14",
-            "oleh": "Mahasiswa Contoh",
-            "oleh_email": "mahasiswa@polban.ac.id",
+            "tanggal": "2026-11-15",
+            "oleh": "Dosen Pengampu",
+            "oleh_email": "dosen@polban.ac.id",
             "kode": "MPK-0018",
             "nama": "Kuningan batangan",
             "satuan": "cm",
-            "jumlah": 40,
-            "ket": "Tugas praktik fabrikasi",
+            "jumlah": 240,
+            "stok": 300,
+            "pesan": 0,
+            "kelas": "2A - D3 Teknik Mesin",
+            "sub_praktikum": "Bubut Bertingkat",
+            "ket": "Kelas: 2A - D3 Teknik Mesin | Sub Praktikum: Bubut Bertingkat (Kebutuhan 1 Semester)",
+            "status": "disetujui",
+            "catatan": "Stok mencukupi untuk 1 semester"
+        }
+    ],
+    "permintaan": [
+        {
+            "id": 1,
+            "tanggal": "2026-11-15",
+            "oleh": "Mahasiswa Contoh",
+            "oleh_email": "mhs@polban.ac.id",
+            "pengajuan_dosen_id": 1,
+            "kode": "MPK-0018",
+            "nama": "Kuningan batangan",
+            "satuan": "cm",
+            "jumlah": 20,
+            "kelas": "2A - D3 Teknik Mesin",
+            "sub_praktikum": "Bubut Bertingkat",
+            "ket": "Konfirmasi Praktikum: Bubut Bertingkat | Kelas: 2A - D3 Teknik Mesin",
             "status": "menunggu",
+            "disetujui_oleh": "",
             "catatan": ""
         }
     ],
