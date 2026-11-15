@@ -1,0 +1,2 @@
+login-bg.jpg  = foto latar halaman login (sisi kiri)
+Foto barang   = simpan di folder ini, lalu isi nama filenya di kolom 'foto' pada data.php

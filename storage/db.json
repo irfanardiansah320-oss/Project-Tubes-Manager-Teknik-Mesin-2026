@@ -1,0 +1,100 @@
+{
+    "users": [
+        {
+            "email": "teknisi@polban.ac.id",
+            "nama": "Teknisi Lab",
+            "role": "teknisi",
+            "hash": "$2y$12$elnWViB9rmQp\/\/0GQc.FvujWnl5m0a0GKVUvRXhTmS3\/HpoBknKom"
+        },
+        {
+            "email": "kalab@polban.ac.id",
+            "nama": "Kepala Lab",
+            "role": "kalab",
+            "hash": "$2y$12$elnWViB9rmQp\/\/0GQc.FvujWnl5m0a0GKVUvRXhTmS3\/HpoBknKom"
+        },
+        {
+            "email": "kajur@polban.ac.id",
+            "nama": "Kepala Jurusan",
+            "role": "kajur",
+            "hash": "$2y$12$elnWViB9rmQp\/\/0GQc.FvujWnl5m0a0GKVUvRXhTmS3\/HpoBknKom"
+        },
+        {
+            "email": "plp@polban.ac.id",
+            "nama": "PLP",
+            "role": "plp",
+            "hash": "$2y$12$elnWViB9rmQp\/\/0GQc.FvujWnl5m0a0GKVUvRXhTmS3\/HpoBknKom"
+        },
+        {
+            "email": "mahasiswa@polban.ac.id",
+            "nama": "Mahasiswa Contoh",
+            "role": "mahasiswa",
+            "hash": "$2y$12$elnWViB9rmQp\/\/0GQc.FvujWnl5m0a0GKVUvRXhTmS3\/HpoBknKom"
+        }
+    ],
+    "barang": [
+        {
+            "kode": "MPK-0012",
+            "nama": "Baja pejal",
+            "spesifikasi": "ST37, Ø20 mm",
+            "satuan": "cm",
+            "rak": "A-02",
+            "minimum": 120,
+            "stok": 10,
+            "foto": ""
+        },
+        {
+            "kode": "MPK-0018",
+            "nama": "Kuningan batangan",
+            "spesifikasi": "Bulat, Ø16 mm, panjang batang 1 m",
+            "satuan": "cm",
+            "rak": "A-03",
+            "minimum": 240,
+            "stok": 300,
+            "foto": ""
+        },
+        {
+            "kode": "MPK-0021",
+            "nama": "Plat baja 1 mm",
+            "spesifikasi": "Lembar 1200 × 2400 mm",
+            "satuan": "lembar",
+            "rak": "A-01",
+            "minimum": 3,
+            "stok": 5,
+            "foto": ""
+        }
+    ],
+    "pengajuan": [
+        {
+            "id": 1,
+            "tanggal": "2026-11-14",
+            "oleh": "Kepala Lab",
+            "oleh_email": "kalab@polban.ac.id",
+            "kode": "MPK-0012",
+            "nama": "Baja pejal",
+            "satuan": "cm",
+            "jumlah": 660,
+            "stok": 10,
+            "pesan": 650,
+            "ket": "Praktik Pemesinan, 30 mahasiswa × 20 cm, toleransi 10%, stok saat ini 10, perlu dipesan 650",
+            "status": "menunggu",
+            "catatan": ""
+        }
+    ],
+    "permintaan": [
+        {
+            "id": 1,
+            "tanggal": "2026-11-14",
+            "oleh": "Mahasiswa Contoh",
+            "oleh_email": "mahasiswa@polban.ac.id",
+            "kode": "MPK-0018",
+            "nama": "Kuningan batangan",
+            "satuan": "cm",
+            "jumlah": 40,
+            "ket": "Tugas praktik fabrikasi",
+            "status": "menunggu",
+            "catatan": ""
+        }
+    ],
+    "pembelian": [],
+    "log": []
+}
