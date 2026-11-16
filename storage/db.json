@@ -49,30 +49,43 @@
             "nama": "Baja pejal",
             "spesifikasi": "ST37, Ø20 mm",
             "satuan": "cm",
-            "rak": "A-02",
+            "rak": "Ruang P2 > Lemari A > A-02",
             "minimum": 120,
             "stok": 10,
-            "foto": ""
+            "foto": "",
+            "lokasi": [
+                "Ruang P2 > Lemari A > A-02"
+            ],
+            "belum": 0
         },
         {
             "kode": "MPK-0018",
             "nama": "Kuningan batangan",
             "spesifikasi": "Bulat, Ø16 mm, panjang batang 1 m",
             "satuan": "cm",
-            "rak": "A-03",
+            "rak": "Ruang P2 > Lemari A > A-03; Ruang P2 > Lemari A > A-01",
             "minimum": 240,
             "stok": 300,
-            "foto": ""
+            "foto": "",
+            "lokasi": [
+                "Ruang P2 > Lemari A > A-03",
+                "Ruang P2 > Lemari A > A-01"
+            ],
+            "belum": 0
         },
         {
             "kode": "MPK-0021",
             "nama": "Plat baja 1 mm",
             "spesifikasi": "Lembar 1200 × 2400 mm",
             "satuan": "lembar",
-            "rak": "A-01",
+            "rak": "Ruang P2 > Lemari A > A-01",
             "minimum": 3,
             "stok": 5,
-            "foto": ""
+            "foto": "",
+            "lokasi": [
+                "Ruang P2 > Lemari A > A-01"
+            ],
+            "belum": 0
         }
     ],
     "pengajuan": [
@@ -131,5 +144,66 @@
         }
     ],
     "pembelian": [],
-    "log": []
+    "log": [
+        {
+            "waktu": "2026-11-16 00:15",
+            "oleh": "PLP",
+            "jenis": "rak",
+            "kode": "MPK-0018",
+            "jumlah": 10,
+            "catatan": "Dari Ruang Utama > Lemari A > A-03 ke Ruang Utama > Lemari A > A-01"
+        }
+    ],
+    "ruangan": [
+        {
+            "id": 1,
+            "nama": "Ruang Utama"
+        }
+    ],
+    "lemari": [
+        {
+            "id": 1,
+            "ruangan_id": 1,
+            "nama": "Lemari A"
+        }
+    ],
+    "rak_unit": [
+        {
+            "id": 1,
+            "lemari_id": 1,
+            "nama": "A-02"
+        },
+        {
+            "id": 2,
+            "lemari_id": 1,
+            "nama": "A-03"
+        },
+        {
+            "id": 3,
+            "lemari_id": 1,
+            "nama": "A-01"
+        }
+    ],
+    "penempatan": [
+        {
+            "kode": "MPK-0012",
+            "rak_id": 1,
+            "jumlah": 10
+        },
+        {
+            "kode": "MPK-0018",
+            "rak_id": 2,
+            "jumlah": 290
+        },
+        {
+            "kode": "MPK-0021",
+            "rak_id": 3,
+            "jumlah": 5
+        },
+        {
+            "kode": "MPK-0018",
+            "rak_id": 3,
+            "jumlah": 10
+        }
+    ]
 }

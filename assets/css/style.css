@@ -92,9 +92,37 @@ td{padding:12px;border-bottom:1px solid #EDF0F5}
 .rak ul{margin:0;padding-left:20px}
 .muted{color:var(--muted)}
 
+.rakgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;align-items:start;margin-bottom:16px}
+.rakgrid .rak{margin-bottom:0}
+.rak.belum{border-left:6px solid var(--orange);margin-bottom:16px}
+.rak h2 a{color:var(--navy);text-decoration:none}
+.rak h2 a:hover{text-decoration:underline}
+.rak .stats{font-size:13px;color:var(--muted);margin:0 0 8px}
+.rakrow{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 0;border-top:1px solid #EDF0F5}
+.rakrow.low{border-left:4px solid #C0392B;padding-left:10px}
+.rakrow .inline select{padding:6px 8px;border:1px solid #AAB4C3;border-radius:4px;background:#fff;max-width:230px}
+.rakrow .inline input[type=number]{width:80px}
+.rakrow .btn,.mini .btn{padding:7px 12px}
+.mini{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px}
+.mini input,.mini select{padding:6px 8px;border:1px solid #AAB4C3;border-radius:4px;background:#fff;max-width:200px}
+.mini .btn.bad{background:var(--bad-bg);color:var(--bad)}
+.crumb{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:14px;margin:0 0 16px}
+.crumb a{color:var(--blue);font-weight:600;text-decoration:none}
+.crumb a:hover{text-decoration:underline}
+.crumb span{color:var(--muted)}
+.rakrow .aksi{flex-basis:100%;display:flex;gap:6px 18px;flex-wrap:wrap;align-items:flex-start;padding:2px 0 10px}
+.aksi details.tempat{margin:6px 0 0}
+.aksi details[open]{flex-basis:100%}
+details.tempat summary{cursor:pointer;font-weight:600;font-size:13px;color:var(--blue);margin-top:10px}
+
+.editnama{background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;cursor:text;border-bottom:1px dashed var(--muted)}
+.editnama:hover{background:var(--warn-bg)}
+.rak h2 .editnama{color:var(--navy)}
+.editnama-input{font:inherit;padding:2px 6px;border:2px solid var(--orange);border-radius:4px;width:min(260px,100%)}
+
 @media (max-width:860px){
  .login{grid-template-columns:1fr}.strip{display:none}.hero{min-height:42vh;padding:32px}.panel{padding:32px 20px}
  .shell{grid-template-columns:1fr}.menu{flex-direction:row;overflow-x:auto;padding:10px}
  main{padding:20px 16px}.item{grid-template-columns:1fr}.stok{text-align:left}.info{grid-template-columns:1fr 1fr}
- .grid2,.grid3,.cards{grid-template-columns:1fr}
+ .grid2,.grid3,.cards,.rakgrid{grid-template-columns:1fr}
 }
