@@ -1,4 +1,8 @@
 <?php
 require 'config.php';
 guard('tinjau.php');
-fitur_tinjau();
+if (norm_role($_SESSION['user']['role']) === 'kalab') {
+    fitur_approval_kalab();
+} else {
+    fitur_tinjau();
+}

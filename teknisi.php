@@ -22,8 +22,10 @@ switch ($fitur) {
     case 'tinjau':
         fitur_tinjau();
         break;
+    case 'stockopname':
+        fitur_stockopname();
+        break;
     default:
         fitur_dashboard();
         break;
 }
-

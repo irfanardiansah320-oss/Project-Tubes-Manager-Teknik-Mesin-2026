@@ -47,163 +47,269 @@
         {
             "kode": "MPK-0012",
             "nama": "Baja pejal",
-            "spesifikasi": "ST37, Ø20 mm",
+            "spesifikasi": "ST37, Ø20 mm, 1 pcs = 100 cm",
             "satuan": "cm",
-            "rak": "Ruang P2 > Lemari A > A-02",
+            "ukuran_pcs": 100,
+            "rak": "A-02",
             "minimum": 120,
             "stok": 10,
-            "foto": "",
-            "lokasi": [
-                "Ruang P2 > Lemari A > A-02"
-            ],
-            "belum": 0
+            "foto": ""
         },
         {
             "kode": "MPK-0018",
             "nama": "Kuningan batangan",
-            "spesifikasi": "Bulat, Ø16 mm, panjang batang 1 m",
+            "spesifikasi": "Bulat, Ø16 mm, 1 pcs = 100 cm",
             "satuan": "cm",
-            "rak": "Ruang P2 > Lemari A > A-03; Ruang P2 > Lemari A > A-01",
-            "minimum": 240,
+            "ukuran_pcs": 100,
+            "rak": "A-03",
+            "minimum": 50,
             "stok": 300,
-            "foto": "",
-            "lokasi": [
-                "Ruang P2 > Lemari A > A-03",
-                "Ruang P2 > Lemari A > A-01"
-            ],
-            "belum": 0
+            "foto": ""
         },
         {
             "kode": "MPK-0021",
             "nama": "Plat baja 1 mm",
             "spesifikasi": "Lembar 1200 × 2400 mm",
             "satuan": "lembar",
-            "rak": "Ruang P2 > Lemari A > A-01",
+            "ukuran_pcs": 1,
+            "rak": "A-01",
             "minimum": 3,
             "stok": 5,
-            "foto": "",
-            "lokasi": [
-                "Ruang P2 > Lemari A > A-01"
-            ],
-            "belum": 0
+            "foto": ""
         }
     ],
-    "pengajuan": [
-        {
-            "id": 1,
-            "tanggal": "2026-11-14",
-            "oleh": "Kepala Lab",
-            "oleh_email": "kalab@polban.ac.id",
-            "kode": "MPK-0012",
-            "nama": "Baja pejal",
-            "satuan": "cm",
-            "jumlah": 660,
-            "stok": 10,
-            "pesan": 650,
-            "ket": "Praktik Pemesinan, 30 mahasiswa × 20 cm, toleransi 10%, stok saat ini 10, perlu dipesan 650",
-            "status": "menunggu",
-            "catatan": ""
-        }
-    ],
+    "rak_kapasitas": {
+        "A-01": 50,
+        "A-02": 500,
+        "A-03": 500
+    },
     "pengajuan_dosen": [
         {
             "id": 1,
-            "tanggal": "2026-11-15",
+            "tanggal": "2026-11-16",
             "oleh": "Dosen Pengampu",
             "oleh_email": "dosen@polban.ac.id",
             "kode": "MPK-0018",
             "nama": "Kuningan batangan",
             "satuan": "cm",
+            "ukuran_pcs": 100,
+            "ukuran_per_mhs": 10,
+            "jml_mhs": 24,
+            "jumlah": 240,
+            "jml_pcs": 3,
+            "stok": 300,
+            "pesan": 0,
+            "kelas": "2B - D3 Teknik Mesin",
+            "sub_praktikum": "Bubut Bertingkat",
+            "ket": "Kelas: 2B - D3 Teknik Mesin | Sub: Bubut Bertingkat | 24 mhs × 10 cm (1 pcs = 100 cm, butuh 3 pcs)",
+            "status": "disetujui",
+            "diajukan_ke_kalab": true,
+            "catatan": "Disetujui PLP untuk 1 semester"
+        },
+        {
+            "id": 2,
+            "tanggal": "2026-11-16",
+            "oleh": "Dosen Pengampu",
+            "oleh_email": "dosen@polban.ac.id",
+            "kode": "MPK-0012",
+            "nama": "Baja pejal",
+            "satuan": "cm",
+            "ukuran_pcs": 100,
+            "ukuran_per_mhs": 20,
+            "jml_mhs": 30,
+            "jumlah": 600,
+            "jml_pcs": 6,
+            "stok": 10,
+            "pesan": 590,
+            "kelas": "2B - D3 Teknik Mesin",
+            "sub_praktikum": "Praktik Pemesinan Bubut",
+            "ket": "Kelas: 2B - D3 Teknik Mesin | Sub: Praktik Pemesinan Bubut | 30 mhs × 20 cm (1 pcs = 100 cm, butuh 6 pcs)",
+            "status": "disetujui",
+            "diajukan_ke_kalab": true,
+            "catatan": "Disetujui PLP, diteruskan ke Kepala Lab"
+        },
+        {
+            "id": 3,
+            "tanggal": "2026-11-16",
+            "oleh": "Dosen Pengampu",
+            "oleh_email": "dosen@polban.ac.id",
+            "kode": "MPK-0018",
+            "nama": "Kuningan batangan",
+            "satuan": "cm",
+            "ukuran_pcs": 100,
+            "ukuran_per_mhs": 10,
+            "jml_mhs": 30,
+            "jumlah": 300,
+            "jml_pcs": 3,
+            "stok": 300,
+            "pesan": 0,
+            "kelas": "2D - Teknik Mesin",
+            "sub_praktikum": "LAS",
+            "ket": "Kelas: 2D - Teknik Mesin | Sub: LAS | 30 mhs × 10 cm (1 pcs = 100 cm, butuh 3 pcs)",
+            "status": "disetujui",
+            "diajukan_ke_kalab": true,
+            "catatan": "ya ini batasnya bos",
+            "disetujui_oleh": "PLP (Pranata Laboratorium Pendidikan)"
+        }
+    ],
+    "pengajuan": [
+        {
+            "id": 1,
+            "tanggal": "2026-11-16",
+            "oleh": "PLP",
+            "oleh_email": "plp@polban.ac.id",
+            "pengajuan_dosen_id": 2,
+            "kode": "MPK-0012",
+            "nama": "Baja pejal",
+            "satuan": "cm",
+            "ukuran_pcs": 100,
+            "ukuran_per_mhs": 20,
+            "jml_mhs": 30,
+            "jml_pcs": 7,
+            "minimum_baru": 120,
+            "jumlah": 660,
+            "stok": 10,
+            "pesan": 650,
+            "ket": "Dari Pengajuan Dosen #2 (Praktik Pemesinan Bubut - 2B): 30 mhs × 20 cm (+tol 10% = 660 cm \/ 7 pcs @100 cm), stok 10 cm, perlu dipesan 650 cm, stok min: 120 cm",
+            "status": "ditolak",
+            "disetujui_oleh": "Kepala Lab (Kepala Lab)",
+            "catatan": ""
+        },
+        {
+            "id": 2,
+            "tanggal": "2026-11-16",
+            "oleh": "PLP (Disetujui PLP)",
+            "oleh_email": "plp@polban.ac.id",
+            "pengajuan_dosen_id": 3,
+            "kode": "MPK-0018",
+            "nama": "Kuningan batangan",
+            "satuan": "cm",
+            "ukuran_pcs": 100,
+            "ukuran_per_mhs": 10,
+            "jml_mhs": 30,
+            "jml_pcs": 3,
+            "minimum_baru": 50,
+            "jumlah": 300,
+            "stok": 300,
+            "pesan": 0,
+            "ket": "Diambil dari Pengajuan Disetujui PLP #3 (LAS - 2D - Teknik Mesin), stok 300, perlu dipesan 0 cm",
+            "status": "disetujui",
+            "disetujui_oleh": "Kepala Lab (Kepala Lab)",
+            "catatan": "Disetujui langsung oleh Kepala Lab dari daftar pengajuan PLP"
+        },
+        {
+            "id": 3,
+            "tanggal": "2026-11-16",
+            "oleh": "PLP (Disetujui PLP)",
+            "oleh_email": "plp@polban.ac.id",
+            "pengajuan_dosen_id": 1,
+            "kode": "MPK-0018",
+            "nama": "Kuningan batangan",
+            "satuan": "cm",
+            "ukuran_pcs": 100,
+            "ukuran_per_mhs": 10,
+            "jml_mhs": 24,
+            "jml_pcs": 3,
+            "minimum_baru": 50,
             "jumlah": 240,
             "stok": 300,
             "pesan": 0,
-            "kelas": "2A - D3 Teknik Mesin",
-            "sub_praktikum": "Bubut Bertingkat",
-            "ket": "Kelas: 2A - D3 Teknik Mesin | Sub Praktikum: Bubut Bertingkat (Kebutuhan 1 Semester)",
+            "ket": "Diambil dari Pengajuan Disetujui PLP #1 (Bubut Bertingkat - 2B - D3 Teknik Mesin), stok 300, perlu dipesan 0 cm",
             "status": "disetujui",
-            "catatan": "Stok mencukupi untuk 1 semester"
+            "disetujui_oleh": "Kepala Lab (Kepala Lab)",
+            "catatan": "Disetujui langsung oleh Kepala Lab dari daftar pengajuan PLP"
         }
     ],
     "permintaan": [
         {
             "id": 1,
-            "tanggal": "2026-11-15",
+            "tanggal": "2026-11-16",
             "oleh": "Mahasiswa Contoh",
             "oleh_email": "mhs@polban.ac.id",
             "pengajuan_dosen_id": 1,
             "kode": "MPK-0018",
             "nama": "Kuningan batangan",
             "satuan": "cm",
-            "jumlah": 20,
-            "kelas": "2A - D3 Teknik Mesin",
+            "tipe_ambil": "sebagian",
+            "total_jatah": 10,
+            "jumlah": 5,
+            "sisa_ambil": 5,
+            "kelas": "2B - D3 Teknik Mesin",
             "sub_praktikum": "Bubut Bertingkat",
-            "ket": "Konfirmasi Praktikum: Bubut Bertingkat | Kelas: 2A - D3 Teknik Mesin",
+            "ket": "Konfirmasi Praktikum: Bubut Bertingkat | Kelas: 2B - D3 Teknik Mesin | Pengambilan: Sebagian (5\/10 cm, sisa 5 cm)",
+            "status": "disetujui",
+            "disetujui_oleh": "PLP (Pranata Laboratorium Pendidikan)",
+            "catatan": "Disetujui sekaligus (1 praktikum)"
+        },
+        {
+            "id": 2,
+            "tanggal": "2026-11-16",
+            "oleh": "Mahasiswa Contoh",
+            "oleh_email": "mahasiswa@polban.ac.id",
+            "pengajuan_dosen_id": 3,
+            "kode": "MPK-0018",
+            "nama": "Kuningan batangan",
+            "satuan": "cm",
+            "tipe_ambil": "penuh",
+            "total_jatah": 10,
+            "jumlah": 10,
+            "sisa_ambil": 0,
+            "kelas": "2D - Teknik Mesin",
+            "sub_praktikum": "LAS",
+            "ket": "Konfirmasi Praktikum: LAS | Kelas: 2D - Teknik Mesin | Pengambilan: Penuh (10 cm)",
             "status": "menunggu",
             "disetujui_oleh": "",
             "catatan": ""
         }
     ],
-    "pembelian": [],
-    "log": [
-        {
-            "waktu": "2026-11-16 00:15",
-            "oleh": "PLP",
-            "jenis": "rak",
-            "kode": "MPK-0018",
-            "jumlah": 10,
-            "catatan": "Dari Ruang Utama > Lemari A > A-03 ke Ruang Utama > Lemari A > A-01"
-        }
-    ],
-    "ruangan": [
+    "stockopname": [
         {
             "id": 1,
-            "nama": "Ruang Utama"
-        }
-    ],
-    "lemari": [
-        {
-            "id": 1,
-            "ruangan_id": 1,
-            "nama": "Lemari A"
-        }
-    ],
-    "rak_unit": [
-        {
-            "id": 1,
-            "lemari_id": 1,
-            "nama": "A-02"
+            "waktu": "2026-11-16 09:00",
+            "oleh": "Teknisi Lab",
+            "kode": "MPK-0012",
+            "nama": "Baja pejal",
+            "satuan": "cm",
+            "rak": "A-02",
+            "stok_sistem": 10,
+            "stok_fisik": 10,
+            "selisih": 0,
+            "kondisi": "Sesuai \/ Baik",
+            "catatan": "Pengecekan rutin rak A-02",
+            "status": "terverifikasi",
+            "dicek_oleh": "PLP",
+            "catatan_plp": "-"
         },
         {
             "id": 2,
-            "lemari_id": 1,
-            "nama": "A-03"
-        },
-        {
-            "id": 3,
-            "lemari_id": 1,
-            "nama": "A-01"
+            "waktu": "2026-11-16 04:25",
+            "oleh": "Teknisi Lab",
+            "kode": "MPK-0012",
+            "nama": "Baja pejal",
+            "satuan": "cm",
+            "rak": "A-02",
+            "stok_sistem": 10,
+            "stok_fisik": 50,
+            "selisih": 40,
+            "kondisi": "Sesuai \/ Baik",
+            "catatan": "dihitung dari rak A02",
+            "status": "menunggu_cek_plp",
+            "dicek_oleh": "",
+            "catatan_plp": ""
         }
     ],
-    "penempatan": [
+    "pembelian": [],
+    "log": [
         {
+            "id": 1,
+            "waktu": "2026-11-16 04:24",
+            "oleh": "PLP",
+            "jenis": "opname",
             "kode": "MPK-0012",
-            "rak_id": 1,
-            "jumlah": 10
-        },
-        {
-            "kode": "MPK-0018",
-            "rak_id": 2,
-            "jumlah": 290
-        },
-        {
-            "kode": "MPK-0021",
-            "rak_id": 3,
-            "jumlah": 5
-        },
-        {
-            "kode": "MPK-0018",
-            "rak_id": 3,
-            "jumlah": 10
+            "jumlah": 10,
+            "catatan": "Cek Real-Time PLP: Stok disesuaikan ke kondisi fisik asli (10 cm)",
+            "dicek_plp": true,
+            "dicek_oleh": "PLP"
         }
     ]
 }

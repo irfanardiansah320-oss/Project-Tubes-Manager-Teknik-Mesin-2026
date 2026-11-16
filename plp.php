@@ -16,6 +16,12 @@ switch ($fitur) {
     case 'tinjau':
         fitur_tinjau();
         break;
+    case 'pengajuan':
+        fitur_pengajuan();
+        break;
+    case 'cek_barang':
+        fitur_cek_barang();
+        break;
     case 'pembelian':
         fitur_pembelian();
         break;
@@ -26,4 +32,3 @@ switch ($fitur) {
         fitur_dashboard();
         break;
 }
-
