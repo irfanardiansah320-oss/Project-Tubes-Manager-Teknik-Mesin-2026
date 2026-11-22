@@ -230,6 +230,7 @@ function db() {
     if (!is_file(DB_FILE)) seed();
     $d = json_decode(file_get_contents(DB_FILE), true);
     if (!isset($d['rak_kapasitas'])) $d['rak_kapasitas'] = DEFAULT_RAK_KAPASITAS;
+    if (!isset($d['rak_lokasi'])) $d['rak_lokasi'] = []; // [nama rak => ['ruangan'=>..., 'lemari'=>...]]
     if (!isset($d['pengajuan_dosen'])) $d['pengajuan_dosen'] = [];
     if (!isset($d['permintaan'])) $d['permintaan'] = [];
     if (!isset($d['pengajuan'])) $d['pengajuan'] = [];
@@ -423,9 +424,9 @@ function dosen_table($rows, $aksi = false) {
     echo '</table></div>';
 }
 
-function mhs_table($rows, $aksi = false, $allowAmbilSisa = false) {
+function mhs_table($rows, $aksi = false, $allowAmbilSisa = false, $bulk = false) {
     if (!$rows) { echo '<p class="empty">Belum ada konfirmasi praktikum & pengambilan bahan dari mahasiswa.</p>'; return; }
-    echo '<div class="tablewrap"><table><tr><th>No</th><th>Tgl Otomatis</th><th>Mahasiswa</th><th>Kelas</th><th>Sub Praktikum</th><th>Bahan Diambil</th><th>Jenis Ambil</th><th>Diambil / Total Jatah</th><th>Sisa Belum Diambil</th><th>Status</th>' . ($aksi ? '<th>Tinjau</th>' : '') . ($allowAmbilSisa ? '<th>Ambil Sisa</th>' : '') . '</tr>';
+    echo '<div class="tablewrap"><table><tr>' . ($bulk ? '<th class="chk"><input type="checkbox" class="cekall" aria-label="Pilih semua"></th>' : '') . '<th>No</th><th>Tgl Otomatis</th><th>Mahasiswa</th><th>Kelas</th><th>Sub Praktikum</th><th>Bahan Diambil</th><th>Jenis Ambil</th><th>Diambil / Total Jatah</th><th>Sisa Belum Diambil</th><th>Status</th>' . ($aksi ? '<th>Tinjau</th>' : '') . ($allowAmbilSisa ? '<th>Ambil Sisa</th>' : '') . '</tr>';
     foreach ($rows as $r) {
         $extra = '';
         if (!empty($r['disetujui_oleh'])) {
@@ -437,7 +438,8 @@ function mhs_table($rows, $aksi = false, $allowAmbilSisa = false) {
         $tipeAmbil = $r['tipe_ambil'] ?? 'penuh';
         $totalJatah = $r['total_jatah'] ?? $r['jumlah'];
         $sisaAmbil = (int)($r['sisa_ambil'] ?? 0);
-        echo '<tr><td>' . e($r['id']) . '</td><td>' . e($r['tanggal']) . '</td><td>' . e($r['oleh']) . '</td><td>' . e($r['kelas'] ?? '-') . '</td><td>' . e($r['sub_praktikum'] ?? $r['ket'] ?? '-') . $extra . '</td><td>' . e($r['nama']) . '</td><td>' . chip($tipeAmbil) . '</td><td><strong>' . e($r['jumlah']) . '</strong> / ' . e($totalJatah . ' ' . $r['satuan']) . '</td><td>' . ($sisaAmbil > 0 ? '<span class="chip warn">' . e($sisaAmbil . ' ' . $r['satuan']) . '</span>' : '<span class="chip ok">Lunas / Penuh</span>') . '</td><td>' . chip($r['status']) . '</td>';
+        $chkCell = $bulk ? '<td class="chk">' . ($r['status'] === 'menunggu' ? '<input type="checkbox" class="pilih" name="ids[]" value="' . e($r['id']) . '" form="bulk" aria-label="Pilih konfirmasi #' . e($r['id']) . '">' : '') . '</td>' : '';
+        echo '<tr>' . $chkCell . '<td>' . e($r['id']) . '</td><td>' . e($r['tanggal']) . '</td><td>' . e($r['oleh']) . '</td><td>' . e($r['kelas'] ?? '-') . '</td><td>' . e($r['sub_praktikum'] ?? $r['ket'] ?? '-') . $extra . '</td><td>' . e($r['nama']) . '</td><td>' . chip($tipeAmbil) . '</td><td><strong>' . e($r['jumlah']) . '</strong> / ' . e($totalJatah . ' ' . $r['satuan']) . '</td><td>' . ($sisaAmbil > 0 ? '<span class="chip warn">' . e($sisaAmbil . ' ' . $r['satuan']) . '</span>' : '<span class="chip ok">Lunas / Penuh</span>') . '</td><td>' . chip($r['status']) . '</td>';
         if ($aksi) {
             echo '<td>';
             if ($r['status'] === 'menunggu') {
@@ -620,6 +622,14 @@ function fitur_stok() {
     require __DIR__ . '/partials/footer.php';
 }
 
+// Lokasi rak: ruangan -> lemari -> rak. Rak yang belum diatur ditampilkan sebagai 'Belum diatur'.
+function rak_lokasi($d, $rak) {
+    $l = $d['rak_lokasi'][$rak] ?? [];
+    $ru = trim((string)($l['ruangan'] ?? ''));
+    $lm = trim((string)($l['lemari'] ?? ''));
+    return ['ruangan' => $ru !== '' ? $ru : 'Belum diatur', 'lemari' => $lm !== '' ? $lm : 'Belum diatur'];
+}
+
 function fitur_rak() {
     $d = db();
     $role = norm_role($_SESSION['user']['role']);
@@ -632,6 +642,9 @@ function fitur_rak() {
             $kap = post_int('kapasitas');
             if ($rk === '' || $kap < 1) go($redirect, 'Nama rak dan kapasitas maksimum harus diisi (> 0).', 'bad');
             $d['rak_kapasitas'][$rk] = $kap;
+            $ru = mb_substr(trim($_POST['ruangan'] ?? ''), 0, 60);
+            $lm = mb_substr(trim($_POST['lemari'] ?? ''), 0, 60);
+            if ($ru !== '' || $lm !== '') $d['rak_lokasi'][$rk] = ['ruangan' => $ru, 'lemari' => $lm];
             save($d);
             go($redirect, "Kapasitas Rak $rk berhasil diatur menjadi $kap.");
         } elseif ($aksi === 'pindah_rak') {
@@ -658,6 +671,25 @@ function fitur_rak() {
         $byRak[$i['rak']][] = $i;
     }
     ksort($byRak);
+
+    // Filter bertingkat: ruangan -> lemari
+    $lokasi = [];
+    foreach (array_keys($byRak) as $rName) $lokasi[$rName] = rak_lokasi($d, $rName);
+    $fRuangan = trim($_GET['ruangan'] ?? '');
+    $fLemari = trim($_GET['lemari'] ?? '');
+    $listRuangan = array_values(array_unique(array_column($lokasi, 'ruangan')));
+    sort($listRuangan, SORT_NATURAL | SORT_FLAG_CASE);
+    $listLemari = [];
+    foreach ($lokasi as $l) {
+        if ($fRuangan === '' || $l['ruangan'] === $fRuangan) $listLemari[] = $l['lemari'];
+    }
+    $listLemari = array_values(array_unique($listLemari));
+    sort($listLemari, SORT_NATURAL | SORT_FLAG_CASE);
+    if ($fLemari !== '' && !in_array($fLemari, $listLemari, true)) $fLemari = '';
+    $tampil = array_filter($byRak, function ($rName) use ($lokasi, $fRuangan, $fLemari) {
+        return ($fRuangan === '' || $lokasi[$rName]['ruangan'] === $fRuangan)
+            && ($fLemari === '' || $lokasi[$rName]['lemari'] === $fLemari);
+    }, ARRAY_FILTER_USE_KEY);
     $title = 'Rak & Status Kapasitas'; $active = 'rak';
     require __DIR__ . '/partials/header.php';
 
@@ -670,6 +702,19 @@ function fitur_rak() {
             <input id="nama_rak" name="nama_rak" placeholder="Contoh: A-01" required>
             <label for="kapasitas">Kapasitas Maksimum Rak (Total Unit/Satuan)</label>
             <input id="kapasitas" name="kapasitas" type="number" min="1" value="500" required>
+            <div class="grid2">
+                <div>
+                    <label for="ruangan">Ruangan</label>
+                    <input id="ruangan" name="ruangan" list="dl_ruangan" maxlength="60" placeholder="Contoh: Lab Kerja Bangku">
+                </div>
+                <div>
+                    <label for="lemari">Lemari</label>
+                    <input id="lemari" name="lemari" list="dl_lemari" maxlength="60" placeholder="Contoh: Lemari 1">
+                </div>
+            </div>
+            <datalist id="dl_ruangan"><?php foreach (array_unique(array_column($lokasi, 'ruangan')) as $o): if ($o !== 'Belum diatur'): ?><option value="<?= e($o) ?>"><?php endif; endforeach; ?></datalist>
+            <datalist id="dl_lemari"><?php foreach (array_unique(array_column($lokasi, 'lemari')) as $o): if ($o !== 'Belum diatur'): ?><option value="<?= e($o) ?>"><?php endif; endforeach; ?></datalist>
+            <p class="muted" style="font-size:12px;margin:0 0 12px">Ruangan &amp; lemari boleh dikosongkan jika hanya mengubah kapasitas (lokasi lama tetap).</p>
             <button class="btn" type="submit">Simpan Kapasitas Rak</button>
         </form>
         <form class="box form" method="post">
@@ -693,8 +738,35 @@ function fitur_rak() {
     </div>
     <?php endif; ?>
 
-    <?php foreach ($byRak as $rak => $rows):
+    <form class="filter" method="get" action="">
+        <input type="hidden" name="fitur" value="rak">
+        <div>
+            <label for="f_ruangan">Ruangan</label>
+            <select id="f_ruangan" name="ruangan" onchange="this.form.lemari.value='';this.form.submit()">
+                <option value="">Semua ruangan</option>
+                <?php foreach ($listRuangan as $o): ?>
+                <option value="<?= e($o) ?>"<?= $o === $fRuangan ? ' selected' : '' ?>><?= e($o) ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div>
+            <label for="f_lemari">Lemari</label>
+            <select id="f_lemari" name="lemari" onchange="this.form.submit()">
+                <option value="">Semua lemari</option>
+                <?php foreach ($listLemari as $o): ?>
+                <option value="<?= e($o) ?>"<?= $o === $fLemari ? ' selected' : '' ?>><?= e($o) ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <button class="btn" type="submit">Terapkan</button>
+        <?php if ($fRuangan !== '' || $fLemari !== ''): ?><a class="reset" href="?fitur=rak">Reset filter</a><?php endif; ?>
+        <span class="muted" style="font-size:13px;margin-left:auto">Menampilkan <?= count($tampil) ?> dari <?= count($byRak) ?> rak</span>
+    </form>
+    <?php if (!$tampil): ?><p class="empty">Tidak ada rak pada ruangan/lemari yang dipilih.</p><?php endif; ?>
+
+    <?php foreach ($tampil as $rak => $rows):
         $rkInfo = rak_info($d, $rak);
+        $lok = $lokasi[$rak];
     ?>
     <section class="rak">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
@@ -706,6 +778,7 @@ function fitur_rak() {
                 <span class="chip <?= e($rkInfo['chip']) ?>">Status Kapasitas: <?= e($rkInfo['status']) ?> (<?= e($rkInfo['pct']) ?>%)</span>
             </div>
         </div>
+        <p class="stats">Ruangan: <strong><?= e($lok['ruangan']) ?></strong> &middot; Lemari: <strong><?= e($lok['lemari']) ?></strong></p>
         <div class="bar" aria-hidden="true"><i style="width:<?= e($rkInfo['pct']) ?>%;background:<?= $rkInfo['chip'] === 'bad' ? '#C0392B' : ($rkInfo['chip'] === 'warn' ? '#F7931E' : 'var(--blue)') ?>"></i></div>
         <?php if (!$rows): ?>
             <p class="muted" style="margin:6px 0 0;font-size:13px">Rak ini masih kosong.</p>
@@ -1721,15 +1794,129 @@ function fitur_konfirmasi_mhs() {
 // Teknisi Point 2 & 4 + PLP:
 // - Teknisi hanya bisa approval untuk pengajuan mahasiswa (dilengkapi fitur approval sekaligus untuk 1 praktikum)
 // - PLP bisa meninjau pengajuan Dosen (sekaligus set stok minimum) dan konfirmasi mahasiswa
+// ---- Helper filter halaman Tinjau ----
+function tinjau_filter($rows, $f) {
+    return array_values(array_filter($rows, function ($r) use ($f) {
+        if ($f['status'] !== '' && ($r['status'] ?? '') !== $f['status']) return false;
+        if ($f['kelas'] !== '' && ($r['kelas'] ?? '') !== $f['kelas']) return false;
+        if ($f['sub'] !== '' && ($r['sub_praktikum'] ?? '') !== $f['sub']) return false;
+        if ($f['q'] !== '') {
+            $hay = implode(' ', [$r['oleh'] ?? '', $r['oleh_email'] ?? '', $r['nama'] ?? '', $r['kode'] ?? '', $r['kelas'] ?? '', $r['sub_praktikum'] ?? '']);
+            if (mb_stripos($hay, $f['q']) === false) return false;
+        }
+        return true;
+    }));
+}
+
+function tinjau_opsi($rows, $key) {
+    $o = [];
+    foreach ($rows as $r) {
+        $v = trim((string)($r[$key] ?? ''));
+        if ($v !== '') $o[$v] = $v;
+    }
+    natcasesort($o);
+    return array_values($o);
+}
+
+function tinjau_filter_form($tab, $f, $kelasList, $subList, $withStatus, $withSub, $withQ, $statusDefault) {
+    $aktif = ($withStatus && $f['status'] !== $statusDefault) || $f['kelas'] !== '' || $f['sub'] !== '' || $f['q'] !== '';
+    ?>
+    <form class="filter" method="get" action="">
+        <input type="hidden" name="fitur" value="tinjau">
+        <input type="hidden" name="tab" value="<?= e($tab) ?>">
+        <?php if ($withStatus): ?>
+        <div>
+            <label for="f_status">Status</label>
+            <select id="f_status" name="status" onchange="this.form.submit()">
+                <option value="">Semua status</option>
+                <?php foreach (['menunggu' => 'Menunggu', 'disetujui' => 'Disetujui', 'ditolak' => 'Ditolak'] as $v => $lb): ?>
+                <option value="<?= e($v) ?>"<?= $f['status'] === $v ? ' selected' : '' ?>><?= e($lb) ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <?php endif; ?>
+        <div>
+            <label for="f_kelas">Kelas</label>
+            <select id="f_kelas" name="kelas" onchange="this.form.submit()">
+                <option value="">Semua kelas</option>
+                <?php foreach ($kelasList as $o): ?>
+                <option value="<?= e($o) ?>"<?= $f['kelas'] === $o ? ' selected' : '' ?>><?= e($o) ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <?php if ($withSub): ?>
+        <div>
+            <label for="f_sub">Sub Praktikum</label>
+            <select id="f_sub" name="sub" onchange="this.form.submit()">
+                <option value="">Semua sub praktikum</option>
+                <?php foreach ($subList as $o): ?>
+                <option value="<?= e($o) ?>"<?= $f['sub'] === $o ? ' selected' : '' ?>><?= e($o) ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <?php endif; ?>
+        <?php if ($withQ): ?>
+        <div>
+            <label for="f_q">Cari</label>
+            <input id="f_q" type="search" name="q" value="<?= e($f['q']) ?>" placeholder="Nama, bahan, kode...">
+        </div>
+        <?php endif; ?>
+        <button class="btn" type="submit">Terapkan</button>
+        <?php if ($aktif): ?><a class="reset" href="?fitur=tinjau&amp;tab=<?= e($tab) ?>">Reset filter</a><?php endif; ?>
+    </form>
+    <?php
+}
+
 function fitur_tinjau() {
     $role = norm_role($_SESSION['user']['role']);
-    $redirect = role_url('tinjau');
+
+    // Tab & filter (dibaca dari URL; form POST tanpa action tetap membawa query ini)
+    $tabIds = $role === 'plp' ? ['dosen', 'rekap', 'mhs'] : ['rekap', 'mhs'];
+    $tab = in_array($_GET['tab'] ?? '', $tabIds, true) ? $_GET['tab'] : ($role === 'plp' ? 'dosen' : 'mhs');
+    $statusDefault = 'menunggu';
+    $st = array_key_exists('status', $_GET) ? trim((string)$_GET['status']) : $statusDefault;
+    if (!in_array($st, ['', 'menunggu', 'disetujui', 'ditolak'], true)) $st = '';
+    $f = [
+        'status' => $st,
+        'kelas' => trim((string)($_GET['kelas'] ?? '')),
+        'sub' => trim((string)($_GET['sub'] ?? '')),
+        'q' => trim((string)($_GET['q'] ?? '')),
+    ];
+    $keep = ['fitur' => 'tinjau', 'tab' => $tab];
+    if (array_key_exists('status', $_GET)) $keep['status'] = $st;
+    foreach (['kelas', 'sub', 'q'] as $k) if ($f[$k] !== '') $keep[$k] = $f[$k];
+    $redirect = role_url() . '?' . http_build_query($keep); // kembali ke tab & filter yang sama
+
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         check_csrf();
         $d = db();
+        $oleh = $_SESSION['user']['nama'] . ' (' . (ROLES[$role] ?? $role) . ')';
 
-        // Teknisi Point 4: Approval sekaligus untuk 1 praktikum pada bagian konfirmasi praktikum mhs
-        if (($_POST['aksi_bulk'] ?? '') === 'setujui_praktikum') {
+        // Approval / penolakan banyak sekaligus lewat checkbox (konfirmasi mahasiswa)
+        $bulk = $_POST['aksi_bulk'] ?? '';
+        if (in_array($bulk, ['setujui_terpilih', 'tolak_terpilih'], true)) {
+            $ids = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['ids'] ?? [])))));
+            if (!$ids) go($redirect, 'Pilih minimal satu konfirmasi mahasiswa terlebih dahulu.', 'warn');
+            $setuju = $bulk === 'setujui_terpilih';
+            $cat = trim($_POST['catatan'] ?? '');
+            if ($cat === '') $cat = $setuju ? 'Disetujui bersama (pilih banyak)' : 'Ditolak bersama (pilih banyak)';
+            $jumlah = 0;
+            foreach ($d['permintaan'] as &$pm) {
+                if ($pm['status'] === 'menunggu' && in_array((int)$pm['id'], $ids, true)) {
+                    $pm['status'] = $setuju ? 'disetujui' : 'ditolak';
+                    $pm['catatan'] = $cat;
+                    $pm['disetujui_oleh'] = $oleh;
+                    $jumlah++;
+                }
+            }
+            unset($pm);
+            if ($jumlah === 0) go($redirect, 'Tidak ada konfirmasi yang berstatus menunggu pada pilihan Anda.', 'warn');
+            save($d);
+            go($redirect, ($setuju ? "Berhasil menyetujui $jumlah" : "Berhasil menolak $jumlah") . ' konfirmasi mahasiswa.');
+        }
+
+        // Approval sekaligus untuk 1 praktikum (tanggal + kelas + sub praktikum)
+        if ($bulk === 'setujui_praktikum') {
             $tgl = $_POST['tanggal'] ?? '';
             $kls = $_POST['kelas'] ?? '';
             $sub = $_POST['sub_praktikum'] ?? '';
@@ -1739,7 +1926,7 @@ function fitur_tinjau() {
                 if ($pm['status'] === 'menunggu' && ($pm['tanggal'] ?? '') === $tgl && ($pm['kelas'] ?? '') === $kls && ($pm['sub_praktikum'] ?? '') === $sub) {
                     $pm['status'] = 'disetujui';
                     $pm['catatan'] = $cat !== '' ? $cat : 'Disetujui sekaligus (1 praktikum)';
-                    $pm['disetujui_oleh'] = $_SESSION['user']['nama'] . ' (' . (ROLES[$role] ?? $role) . ')';
+                    $pm['disetujui_oleh'] = $oleh;
                     $countApproved++;
                 }
             }
@@ -1761,7 +1948,7 @@ function fitur_tinjau() {
         }
         $d[$tipe][$n]['status'] = $aksi === 'setujui' ? 'disetujui' : 'ditolak';
         $d[$tipe][$n]['catatan'] = trim($_POST['catatan'] ?? '');
-        $d[$tipe][$n]['disetujui_oleh'] = $_SESSION['user']['nama'] . ' (' . (ROLES[$role] ?? $role) . ')';
+        $d[$tipe][$n]['disetujui_oleh'] = $oleh;
 
         // PLP Point 2: Jika PLP menginput stok minimum saat meninjau pengajuan dosen
         if ($tipe === 'pengajuan_dosen' && isset($_POST['minimum_baru']) && $_POST['minimum_baru'] !== '') {
@@ -1778,16 +1965,100 @@ function fitur_tinjau() {
     $title = $role === 'teknisi' ? 'Konfirmasi Praktikum Mahasiswa (Approval Teknisi)' : 'Tinjau Pengajuan Dosen & Mahasiswa';
     $active = 'tinjau';
     $d = db();
+
+    // Hitung jumlah yang masih menunggu untuk badge tab
+    $cDosen = count(array_filter($d['pengajuan_dosen'], function ($r) { return $r['status'] === 'menunggu'; }));
+    $cMhs = count(array_filter($d['permintaan'], function ($r) { return $r['status'] === 'menunggu'; }));
+    $grup = [];
+    foreach ($d['permintaan'] as $r) {
+        if ($r['status'] === 'menunggu') $grup[($r['tanggal'] ?? '') . '|' . ($r['kelas'] ?? '') . '|' . ($r['sub_praktikum'] ?? '')] = true;
+    }
+    $cRekap = count($grup);
+    $tabs = ['dosen' => ['Pengajuan Dosen', $cDosen], 'rekap' => ['Rekap Praktikum', $cRekap], 'mhs' => ['Konfirmasi Mahasiswa', $cMhs]];
+
     require __DIR__ . '/partials/header.php';
+    ?>
+    <nav class="tabs" aria-label="Bagian tinjauan">
+    <?php foreach ($tabs as $id => [$label, $cnt]): if (!in_array($id, $tabIds, true)) continue; ?>
+        <a href="?fitur=tinjau&amp;tab=<?= e($id) ?>"<?= $id === $tab ? ' class="on" aria-current="page"' : '' ?>><?= e($label) ?><?php if ($cnt > 0): ?><span class="badge" title="<?= e($cnt) ?> menunggu"><?= e($cnt) ?></span><?php endif; ?></a>
+    <?php endforeach; ?>
+    </nav>
+    <?php
 
-    if ($role === 'plp'): ?>
-        <h2>Pengajuan Bahan Praktikum 1 Semester (Dosen)</h2>
-        <?php dosen_table(array_reverse($d['pengajuan_dosen']), true); ?>
-    <?php endif; ?>
-
-    <?php render_rekap_kehadiran_praktikum($d['permintaan'], true); ?>
-    <h2>Daftar Konfirmasi Praktikum & Pengambilan Bahan (Mahasiswa)</h2>
-    <?php mhs_table(array_reverse($d['permintaan']), true);
+    if ($tab === 'dosen') {
+        $semua = array_reverse($d['pengajuan_dosen']);
+        tinjau_filter_form('dosen', $f, tinjau_opsi($semua, 'kelas'), [], true, false, true, $statusDefault);
+        $rows = tinjau_filter($semua, $f);
+        echo '<p class="sum">Menampilkan ' . count($rows) . ' dari ' . count($semua) . ' pengajuan dosen.</p>';
+        if (!$rows) {
+            echo '<p class="empty">' . ($semua ? 'Tidak ada data yang cocok dengan filter. Coba pilih &quot;Semua status&quot;.' : 'Belum ada pengajuan bahan semester dari dosen.') . '</p>';
+        } else {
+            dosen_table($rows, true);
+        }
+    } elseif ($tab === 'rekap') {
+        $semua = $d['permintaan'];
+        $fRekap = ['status' => '', 'kelas' => $f['kelas'], 'sub' => $f['sub'], 'q' => ''];
+        tinjau_filter_form('rekap', $f, tinjau_opsi($semua, 'kelas'), tinjau_opsi($semua, 'sub_praktikum'), false, true, false, '');
+        $rows = tinjau_filter($semua, $fRekap);
+        if (!$rows) {
+            echo '<p class="empty">' . ($semua ? 'Tidak ada praktikum yang cocok dengan filter.' : 'Belum ada konfirmasi praktikum dari mahasiswa.') . '</p>';
+        } else {
+            render_rekap_kehadiran_praktikum($rows, true);
+        }
+    } else {
+        $semua = array_reverse($d['permintaan']);
+        tinjau_filter_form('mhs', $f, tinjau_opsi($semua, 'kelas'), tinjau_opsi($semua, 'sub_praktikum'), true, true, true, $statusDefault);
+        $rows = tinjau_filter($semua, $f);
+        $menunggu = count(array_filter($rows, function ($r) { return $r['status'] === 'menunggu'; }));
+        echo '<h2>Daftar Konfirmasi Praktikum &amp; Pengambilan Bahan (Mahasiswa)</h2>';
+        echo '<p class="sum">Menampilkan ' . count($rows) . ' dari ' . count($semua) . ' konfirmasi, ' . $menunggu . ' menunggu persetujuan.</p>';
+        if (!$rows) {
+            echo '<p class="empty">' . ($semua ? 'Tidak ada data yang cocok dengan filter. Coba pilih &quot;Semua status&quot;.' : 'Belum ada konfirmasi praktikum & pengambilan bahan dari mahasiswa.') . '</p>';
+        } else {
+            if ($menunggu > 0): ?>
+            <form id="bulk" class="bulkbar" method="post" action="">
+                <?= field_csrf() ?>
+                <label class="pilihsemua"><input type="checkbox" class="cekall"> Pilih semua (<?= e($menunggu) ?> menunggu)</label>
+                <strong><span id="jmlpilih">0</span> dipilih</strong>
+                <input name="catatan" placeholder="Catatan (opsional)" aria-label="Catatan untuk semua yang dipilih" style="width:200px;padding:7px 10px;border:1px solid #AAB4C3;border-radius:6px">
+                <button class="btn" type="submit" name="aksi_bulk" value="setujui_terpilih" disabled>Setujui Terpilih</button>
+                <button class="btn sec" type="submit" name="aksi_bulk" value="tolak_terpilih" disabled onclick="return confirm('Tolak semua konfirmasi yang dipilih?')">Tolak Terpilih</button>
+                <small class="muted">Tips: klik satu kotak, lalu tahan Shift dan klik kotak lain untuk memilih rentang.</small>
+            </form>
+            <?php endif;
+            mhs_table($rows, true, false, $menunggu > 0);
+            if ($menunggu > 0): ?>
+            <script>
+            (function () {
+                var boxes = [].slice.call(document.querySelectorAll('.pilih'));
+                var alls = [].slice.call(document.querySelectorAll('.cekall'));
+                var cnt = document.getElementById('jmlpilih');
+                var btns = [].slice.call(document.querySelectorAll('#bulk button[name=aksi_bulk]'));
+                var last = null;
+                function sync() {
+                    var n = boxes.filter(function (b) { return b.checked; }).length;
+                    cnt.textContent = n;
+                    btns.forEach(function (b) { b.disabled = n === 0; });
+                    alls.forEach(function (a) { a.checked = n > 0 && n === boxes.length; a.indeterminate = n > 0 && n < boxes.length; });
+                }
+                alls.forEach(function (a) {
+                    a.addEventListener('change', function () { boxes.forEach(function (b) { b.checked = a.checked; }); sync(); });
+                });
+                boxes.forEach(function (b, i) {
+                    b.addEventListener('click', function (ev) {
+                        if (ev.shiftKey && last !== null) {
+                            var s = Math.min(last, i), t = Math.max(last, i);
+                            for (var k = s; k <= t; k++) boxes[k].checked = b.checked;
+                        }
+                        last = i; sync();
+                    });
+                });
+                sync();
+            })();
+            </script>
+            <?php endif;
+        }
+    }
     require __DIR__ . '/partials/footer.php';
 }
 
