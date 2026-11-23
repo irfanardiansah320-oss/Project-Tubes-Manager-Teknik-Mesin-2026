@@ -12,7 +12,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $n = find_idx($users, 'email', $email);
         if ($n !== null && password_verify($pass, $users[$n]['hash'])) {
             session_regenerate_id(true);
-            $_SESSION['user'] = ['email' => $users[$n]['email'], 'nama' => $users[$n]['nama'], 'role' => $users[$n]['role']];
+            $_SESSION['user'] = [
+                'email' => $users[$n]['email'],
+                'nama' => $users[$n]['nama'],
+                'role' => $users[$n]['role'],
+                'nim' => $users[$n]['nim'] ?? '',
+            ];
             go(home_for($users[$n]['role']));
         }
         $error = 'Username atau password salah.';

@@ -18,7 +18,7 @@ $flash = flash();
 <body class="app">
 <header class="topbar">
     <strong>INVENTARIS BARANG</strong>
-    <form class="who" action="logout.php" method="post"><?= e($u['nama']) ?> <small>(<?= e(ROLES[$u['role']] ?? $u['role']) ?>)</small> <button class="linkbtn">Keluar</button></form>
+    <form class="who" action="logout.php" method="post"><?= e($u['nama']) ?><?= !empty($u['nim']) ? ' (' . e($u['nim']) . ')' : '' ?> <small>(<?= e(ROLES[$u['role']] ?? $u['role']) ?>)</small> <button class="linkbtn">Keluar</button></form>
 </header>
 <div class="shell">
 <nav class="menu" aria-label="Menu utama">

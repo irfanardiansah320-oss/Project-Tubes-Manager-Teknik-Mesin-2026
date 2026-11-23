@@ -96,15 +96,15 @@ function seed() {
     $h = password_hash('password', PASSWORD_DEFAULT);
     $users = [];
     foreach ([
-        ['kalab', 'Kepala Lab'],
-        ['kajur', 'Ketua Jurusan'],
-        ['teknisi', 'Teknisi Lab'],
-        ['plp', 'PLP'],
-        ['dosen', 'Dosen Pengampu'],
-        ['mhs', 'Mahasiswa Contoh'],
-        ['mahasiswa', 'Mahasiswa Contoh'],
-    ] as [$r, $n]) {
-        $users[] = ['email' => "$r@polban.ac.id", 'nama' => $n, 'role' => norm_role($r), 'hash' => $h];
+        ['kalab', 'Kepala Lab', ''],
+        ['kajur', 'Ketua Jurusan', ''],
+        ['teknisi', 'Teknisi Lab', ''],
+        ['plp', 'PLP', ''],
+        ['dosen', 'Dosen Pengampu', ''],
+        ['mhs', 'Mahasiswa Contoh', '231211001'],
+        ['mahasiswa', 'Mahasiswa Contoh 2', '231211002'],
+    ] as [$r, $n, $nim]) {
+        $users[] = ['email' => "$r@polban.ac.id", 'nama' => $n, 'role' => norm_role($r), 'nim' => $nim, 'hash' => $h];
     }
     save([
         'users' => $users,
@@ -184,6 +184,7 @@ function seed() {
             [
                 'id' => 1,
                 'tanggal' => date('Y-m-d'),
+                'nim' => '231211001',
                 'oleh' => 'Mahasiswa Contoh',
                 'oleh_email' => 'mhs@polban.ac.id',
                 'pengajuan_dosen_id' => 1,
@@ -317,6 +318,11 @@ function rak_info($d, $rak) {
 // Guard berdasarkan file fitur atau role
 function guard($file) {
     if (empty($_SESSION['user'])) { header('Location: login.php'); exit; }
+    if (empty($_SESSION['user']['nim'])) {
+        $uList = db()['users'] ?? [];
+        $uIdx = find_idx($uList, 'email', $_SESSION['user']['email'] ?? '');
+        if ($uIdx !== null) $_SESSION['user']['nim'] = $uList[$uIdx]['nim'] ?? '';
+    }
     $role = norm_role($_SESSION['user']['role']);
     $allowed = array_map('norm_role', PAGES[$file][1] ?? []);
     if (!in_array($role, $allowed, true)) {
@@ -327,6 +333,11 @@ function guard($file) {
 
 function guard_role($expectedRole) {
     if (empty($_SESSION['user'])) { header('Location: login.php'); exit; }
+    if (empty($_SESSION['user']['nim'])) {
+        $uList = db()['users'] ?? [];
+        $uIdx = find_idx($uList, 'email', $_SESSION['user']['email'] ?? '');
+        if ($uIdx !== null) $_SESSION['user']['nim'] = $uList[$uIdx]['nim'] ?? '';
+    }
     $userRole = norm_role($_SESSION['user']['role']);
     $expected = norm_role($expectedRole);
     if ($userRole !== $expected) {
@@ -426,7 +437,26 @@ function dosen_table($rows, $aksi = false) {
 
 function mhs_table($rows, $aksi = false, $allowAmbilSisa = false, $bulk = false) {
     if (!$rows) { echo '<p class="empty">Belum ada konfirmasi praktikum & pengambilan bahan dari mahasiswa.</p>'; return; }
-    echo '<div class="tablewrap"><table><tr>' . ($bulk ? '<th class="chk"><input type="checkbox" class="cekall" aria-label="Pilih semua"></th>' : '') . '<th>No</th><th>Tgl Otomatis</th><th>Mahasiswa</th><th>Kelas</th><th>Sub Praktikum</th><th>Bahan Diambil</th><th>Jenis Ambil</th><th>Diambil / Total Jatah</th><th>Sisa Belum Diambil</th><th>Status</th>' . ($aksi ? '<th>Tinjau</th>' : '') . ($allowAmbilSisa ? '<th>Ambil Sisa</th>' : '') . '</tr>';
+
+    $isMhsView = ($allowAmbilSisa || norm_role($_SESSION['user']['role'] ?? '') === 'mhs');
+
+    static $userNimMap = null;
+    if ($userNimMap === null) {
+        $userNimMap = [];
+        $dTemp = db();
+        foreach ($dTemp['users'] ?? [] as $u) {
+            if (!empty($u['email'])) $userNimMap[$u['email']] = $u['nim'] ?? '';
+        }
+    }
+
+    echo '<div class="tablewrap"><table><tr>'
+        . ($bulk ? '<th class="chk"><input type="checkbox" class="cekall" aria-label="Pilih semua"></th>' : '')
+        . '<th>No</th><th>Tgl Otomatis</th><th>NIM</th><th>Mahasiswa</th>'
+        . (!$isMhsView ? '<th>Kelas</th><th>Sub Praktikum</th>' : '')
+        . '<th>Bahan Diambil</th><th>Total Jatah</th><th>Jumlah Diambil</th><th>Sisa Jatah</th><th>Status</th>'
+        . ($aksi ? '<th>Tinjau</th>' : '')
+        . ($allowAmbilSisa ? '<th>Ambil Sisa</th>' : '')
+        . '</tr>';
     foreach ($rows as $r) {
         $extra = '';
         if (!empty($r['disetujui_oleh'])) {
@@ -435,11 +465,21 @@ function mhs_table($rows, $aksi = false, $allowAmbilSisa = false, $bulk = false)
         if (($r['catatan'] ?? '') !== '') {
             $extra .= '<br><small class="muted">Catatan: ' . e($r['catatan']) . '</small>';
         }
-        $tipeAmbil = $r['tipe_ambil'] ?? 'penuh';
         $totalJatah = $r['total_jatah'] ?? $r['jumlah'];
         $sisaAmbil = (int)($r['sisa_ambil'] ?? 0);
+        $nim = !empty($r['nim']) ? $r['nim'] : ($userNimMap[$r['oleh_email'] ?? ''] ?? '-');
         $chkCell = $bulk ? '<td class="chk">' . ($r['status'] === 'menunggu' ? '<input type="checkbox" class="pilih" name="ids[]" value="' . e($r['id']) . '" form="bulk" aria-label="Pilih konfirmasi #' . e($r['id']) . '">' : '') . '</td>' : '';
-        echo '<tr>' . $chkCell . '<td>' . e($r['id']) . '</td><td>' . e($r['tanggal']) . '</td><td>' . e($r['oleh']) . '</td><td>' . e($r['kelas'] ?? '-') . '</td><td>' . e($r['sub_praktikum'] ?? $r['ket'] ?? '-') . $extra . '</td><td>' . e($r['nama']) . '</td><td>' . chip($tipeAmbil) . '</td><td><strong>' . e($r['jumlah']) . '</strong> / ' . e($totalJatah . ' ' . $r['satuan']) . '</td><td>' . ($sisaAmbil > 0 ? '<span class="chip warn">' . e($sisaAmbil . ' ' . $r['satuan']) . '</span>' : '<span class="chip ok">Lunas / Penuh</span>') . '</td><td>' . chip($r['status']) . '</td>';
+        echo '<tr>' . $chkCell
+            . '<td>' . e($r['id']) . '</td>'
+            . '<td>' . e($r['tanggal']) . '</td>'
+            . '<td><strong>' . e($nim) . '</strong></td>'
+            . '<td>' . e($r['oleh']) . '</td>'
+            . (!$isMhsView ? '<td>' . e($r['kelas'] ?? '-') . '</td><td>' . e($r['sub_praktikum'] ?? $r['ket'] ?? '-') . $extra . '</td>' : '')
+            . '<td>' . e($r['nama']) . '</td>'
+            . '<td>' . e($totalJatah . ' ' . $r['satuan']) . '</td>'
+            . '<td><strong>' . e($r['jumlah'] . ' ' . $r['satuan']) . '</strong></td>'
+            . '<td>' . ($sisaAmbil > 0 ? '<span class="chip warn">' . e($sisaAmbil . ' ' . $r['satuan']) . '</span>' : '<span class="chip ok">0 ' . e($r['satuan']) . ' (Lunas)</span>') . '</td>'
+            . '<td>' . chip($r['status']) . '</td>';
         if ($aksi) {
             echo '<td>';
             if ($r['status'] === 'menunggu') {
@@ -1597,9 +1637,9 @@ function fitur_pengajuan_dosen() {
 }
 
 // Mahasiswa Point 1, 2, 3:
-// 1. Tidak perlu form NIM karena sudah login
+// 1. NIM otomatis terisi dari akun mahasiswa yang sedang login
 // 2. Tanggal tercatat otomatis (date('Y-m-d'))
-// 3. Pengambilan bisa diambil sebagian (bertahap) maupun penuh, dengan pelacakan sisa pengambilan
+// 3. Form disederhanakan: kelas & sub kelas dihapus dari form, total jatah otomatis dari praktikum, cukup isi jumlah diambil & sisa otomatis terhitung
 function fitur_konfirmasi_mhs() {
     $redirect = role_url('permintaan');
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -1619,6 +1659,7 @@ function fitur_konfirmasi_mhs() {
             $d['permintaan'][] = [
                 'id' => count($d['permintaan']) + 1,
                 'tanggal' => date('Y-m-d'), // tercatat otomatis
+                'nim' => $_SESSION['user']['nim'] ?? ($parent['nim'] ?? ''),
                 'oleh' => $_SESSION['user']['nama'],
                 'oleh_email' => $_SESSION['user']['email'],
                 'pengajuan_dosen_id' => $parent['pengajuan_dosen_id'] ?? 0,
@@ -1631,7 +1672,7 @@ function fitur_konfirmasi_mhs() {
                 'sisa_ambil' => $sisaBaru,
                 'kelas' => $parent['kelas'],
                 'sub_praktikum' => $parent['sub_praktikum'],
-                'ket' => "Pengambilan Lanjutan (Sisa) Praktikum: {$parent['sub_praktikum']} | Kelas: {$parent['kelas']} | Diambil: $jmlSisa {$parent['satuan']} (Sisa: $sisaBaru {$parent['satuan']})",
+                'ket' => "Pengambilan Lanjutan (Sisa) Praktikum: {$parent['sub_praktikum']} | Diambil: $jmlSisa {$parent['satuan']} (Sisa: $sisaBaru {$parent['satuan']})",
                 'status' => 'menunggu',
                 'disetujui_oleh' => '',
                 'catatan' => '',
@@ -1642,8 +1683,7 @@ function fitur_konfirmasi_mhs() {
         }
 
         $pdId = post_int('pengajuan_dosen_id');
-        $n = find_idx($d['barang'], 'kode', $_POST['kode'] ?? '');
-        $tipeAmbil = ($_POST['tipe_ambil'] ?? 'penuh') === 'sebagian' ? 'sebagian' : 'penuh';
+        $n = null;
         $totalJatah = post_int('total_jatah');
         $jml = post_int('jumlah');
         $kelas = trim($_POST['kelas'] ?? '');
@@ -1657,40 +1697,57 @@ function fitur_konfirmasi_mhs() {
                 $n = find_idx($d['barang'], 'kode', $pd['kode']);
                 if ($kelas === '') $kelas = $pd['kelas'];
                 if ($sub === '') $sub = $pd['sub_praktikum'];
-                if ($totalJatah < 1) $totalJatah = (int)($pd['ukuran_per_mhs'] ?? $jml);
+                if ($totalJatah < 1) $totalJatah = (int)($pd['ukuran_per_mhs'] ?? 0);
             }
+        } else {
+            $n = find_idx($d['barang'], 'kode', $_POST['kode'] ?? '');
         }
 
-        if ($totalJatah < $jml) $totalJatah = $jml;
-        if ($tipeAmbil === 'penuh') {
-            $jml = $totalJatah;
+        if ($n === null) {
+            go($redirect, 'Silakan pilih praktikum yang valid.', 'bad');
         }
+
+        if ($jml < 1) {
+            go($redirect, 'Masukkan jumlah bahan yang diambil (minimal 1).', 'bad');
+        }
+
+        if ($totalJatah > 0 && $jml > $totalJatah) {
+            go($redirect, "Jumlah yang diambil ($jml) tidak boleh melebihi total jatah ($totalJatah).", 'bad');
+        }
+
         $sisaAmbil = max(0, $totalJatah - $jml);
-
-        if ($n === null || $jml < 1 || $kelas === '' || $sub === '') {
-            go($redirect, 'Lengkapi pilihan praktikum/bahan, kelas, sub praktikum, dan jumlah pengambilan bahan.', 'bad');
-        }
+        $tipeAmbil = $sisaAmbil > 0 ? 'sebagian' : 'penuh';
         $b = $d['barang'][$n];
         $ketAmbil = $sisaAmbil > 0
             ? "Pengambilan: Sebagian ($jml/$totalJatah {$b['satuan']}, sisa $sisaAmbil {$b['satuan']})"
             : "Pengambilan: Penuh ($jml {$b['satuan']})";
 
+        $userNim = $_SESSION['user']['nim'] ?? '';
+        if (empty($userNim)) {
+            $idxU = find_idx($d['users'], 'email', $_SESSION['user']['email'] ?? '');
+            if ($idxU !== null) {
+                $userNim = $d['users'][$idxU]['nim'] ?? '';
+                $_SESSION['user']['nim'] = $userNim;
+            }
+        }
+
         $d['permintaan'][] = [
             'id' => count($d['permintaan']) + 1,
             'tanggal' => $tglOtomatis,
+            'nim' => $userNim,
             'oleh' => $_SESSION['user']['nama'],
             'oleh_email' => $_SESSION['user']['email'],
             'pengajuan_dosen_id' => $pdId,
             'kode' => $b['kode'],
             'nama' => $b['nama'],
             'satuan' => $b['satuan'],
-            'tipe_ambil' => $sisaAmbil > 0 ? 'sebagian' : 'penuh',
+            'tipe_ambil' => $tipeAmbil,
             'total_jatah' => $totalJatah,
             'jumlah' => $jml,
             'sisa_ambil' => $sisaAmbil,
             'kelas' => $kelas,
             'sub_praktikum' => $sub,
-            'ket' => "Konfirmasi Praktikum: $sub | Kelas: $kelas | $ketAmbil",
+            'ket' => "Konfirmasi Praktikum" . ($sub !== '' ? ": $sub" : '') . " | $ketAmbil",
             'status' => 'menunggu',
             'disetujui_oleh' => '',
             'catatan' => '',
@@ -1702,90 +1759,167 @@ function fitur_konfirmasi_mhs() {
     $jadwalDosen = array_filter($d['pengajuan_dosen'], fn($r) => $r['status'] === 'disetujui');
     if (!$jadwalDosen) $jadwalDosen = $d['pengajuan_dosen'];
     $milik = array_reverse(array_filter($d['permintaan'], fn($r) => $r['oleh_email'] === $_SESSION['user']['email'] || norm_role($_SESSION['user']['role']) === 'mhs'));
+    $userNim = $_SESSION['user']['nim'] ?? '';
+    if (empty($userNim)) {
+        $idxU = find_idx($d['users'], 'email', $_SESSION['user']['email'] ?? '');
+        if ($idxU !== null) {
+            $userNim = $d['users'][$idxU]['nim'] ?? '';
+            $_SESSION['user']['nim'] = $userNim;
+        }
+    }
     require __DIR__ . '/partials/header.php';
     ?>
     <p class="sum">
-        Identitas Mahasiswa: <strong><?= e($_SESSION['user']['nama']) ?> (<?= e($_SESSION['user']['email']) ?>)</strong> —
+        Identitas Mahasiswa: <strong><?= e($_SESSION['user']['nama']) ?> (<?= !empty($userNim) ? 'NIM: ' . e($userNim) . ' | ' : '' ?><?= e($_SESSION['user']['email']) ?>)</strong> —
         Tanggal Konfirmasi Tercatat Otomatis: <strong><?= date('Y-m-d') ?></strong>.
     </p>
     <form class="box form" method="post">
         <?= field_csrf() ?>
+        <input type="hidden" id="kelas" name="kelas" value="">
+        <input type="hidden" id="sub_praktikum" name="sub_praktikum" value="">
+
+        <div class="grid3">
+            <div>
+                <label for="nim">NIM Mahasiswa (Otomatis)</label>
+                <input id="nim" name="nim" type="text" value="<?= e($userNim) ?>" readonly style="background:#f1f5f9;cursor:not-allowed">
+            </div>
+            <div>
+                <label for="nama_mhs">Nama Mahasiswa (Akun)</label>
+                <input id="nama_mhs" type="text" value="<?= e($_SESSION['user']['nama']) ?>" readonly style="background:#f1f5f9;cursor:not-allowed">
+            </div>
+            <div>
+                <label for="tanggal_otomatis">Tanggal (Otomatis)</label>
+                <input id="tanggal_otomatis" type="text" value="<?= date('Y-m-d') ?>" readonly style="background:#f1f5f9;cursor:not-allowed">
+            </div>
+        </div>
+
+        <?php
+        $barangMap = [];
+        foreach ($d['barang'] as $b) {
+            $barangMap[$b['kode']] = $b;
+        }
+        ?>
         <?php if ($jadwalDosen): ?>
-        <label for="pengajuan_dosen_id">Pilih Praktikum (dari Pengajuan Dosen)</label>
-        <select id="pengajuan_dosen_id" name="pengajuan_dosen_id">
+        <label for="pengajuan_dosen_id">Pilih Kegiatan Praktikum (dari Pengajuan Dosen)</label>
+        <select id="pengajuan_dosen_id" name="pengajuan_dosen_id" required>
             <option value="">-- Pilih praktikum dosen --</option>
-            <?php foreach ($jadwalDosen as $jd): ?>
+            <?php foreach ($jadwalDosen as $jd):
+                $bInfo = $barangMap[$jd['kode']] ?? null;
+                $namaBahanLengkap = $bInfo ? ($bInfo['nama'] . ' - ' . $bInfo['spesifikasi'] . ' (' . $bInfo['satuan'] . ')') : $jd['nama'];
+            ?>
             <option value="<?= e($jd['id']) ?>"
                 data-kode="<?= e($jd['kode']) ?>"
+                data-nama="<?= e($namaBahanLengkap) ?>"
                 data-kelas="<?= e($jd['kelas']) ?>"
                 data-sub="<?= e($jd['sub_praktikum']) ?>"
-                data-jatah="<?= e($jd['ukuran_per_mhs'] ?? 10) ?>">
-                <?= e($jd['sub_praktikum'] . ' | Kelas ' . $jd['kelas'] . ' | Bahan: ' . $jd['nama'] . ' (Jatah/mhs: ' . ($jd['ukuran_per_mhs'] ?? '-') . ' ' . $jd['satuan'] . ')') ?>
+                data-jatah="<?= e($jd['ukuran_per_mhs'] ?? 10) ?>"
+                data-satuan="<?= e($jd['satuan']) ?>">
+                <?= e($jd['sub_praktikum'] . ' | Kelas ' . $jd['kelas'] . ' | Bahan: ' . $jd['nama'] . ' (Jatah: ' . ($jd['ukuran_per_mhs'] ?? '-') . ' ' . $jd['satuan'] . ')') ?>
             </option>
             <?php endforeach; ?>
         </select>
         <?php endif; ?>
-        <label for="kode">Nama Bahan yang Diambil</label>
-        <select id="kode" name="kode" required><option value="">Pilih bahan</option>
-        <?php foreach ($d['barang'] as $b): ?><option value="<?= e($b['kode']) ?>"><?= e($b['nama'] . ' - ' . $b['spesifikasi'] . ' (' . $b['satuan'] . ')') ?></option><?php endforeach; ?>
-        </select>
-        <div class="grid2">
-            <div><label for="kelas">Kelas</label><input id="kelas" name="kelas" placeholder="Contoh: 2B - D3 Teknik Mesin" required></div>
-            <div><label for="sub_praktikum">Nama / Sub Praktikum</label><input id="sub_praktikum" name="sub_praktikum" placeholder="Contoh: Bubut Bertingkat" required></div>
-        </div>
+
+        <input type="hidden" id="kode" name="kode" value="">
+        <label for="nama_bahan_tampil">Nama Bahan yang Diambil (Otomatis Sesuai Praktikum)</label>
+        <input id="nama_bahan_tampil" type="text" readonly style="background:#f1f5f9;cursor:not-allowed;font-weight:600" placeholder="Otomatis terisi sesuai kegiatan praktikum yang dipilih" required>
+
         <div class="grid3">
             <div>
-                <label for="tipe_ambil">Metode Pengambilan Bahan</label>
-                <select id="tipe_ambil" name="tipe_ambil">
-                    <option value="penuh">Ambil Penuh (Seluruh Jatah)</option>
-                    <option value="sebagian">Ambil Sebagian (Bertahap)</option>
-                </select>
+                <label for="total_jatah">Total Jatah (Otomatis Terisi)</label>
+                <input id="total_jatah" name="total_jatah" type="number" readonly style="background:#f1f5f9;cursor:not-allowed" placeholder="Otomatis dari praktikum" required>
             </div>
             <div>
-                <label for="total_jatah">Total Jatah Kebutuhan per Mahasiswa</label>
-                <input id="total_jatah" name="total_jatah" type="number" min="1" required>
+                <label for="jumlah">Jumlah yang Diambil</label>
+                <input id="jumlah" name="jumlah" type="number" min="1" placeholder="Masukkan jumlah yang diambil" required>
             </div>
             <div>
-                <label for="jumlah">Jumlah Diambil Sekarang</label>
-                <input id="jumlah" name="jumlah" type="number" min="1" required>
+                <label for="sisa_tampil">Sisa Jatah</label>
+                <input id="sisa_tampil" type="text" readonly style="background:#f1f5f9;cursor:not-allowed;font-weight:600" placeholder="Kelihatan sisa di sini">
             </div>
         </div>
-        <p id="info_ambil" class="calc">Tanggal praktikum tercatat otomatis hari ini (<?= date('Y-m-d') ?>). Pengambilan dapat dilakukan penuh atau sebagian (bertahap).</p>
-        <button class="btn" type="submit">Kirim Konfirmasi & Pengajuan Pengambilan</button>
+
+        <p id="info_ambil" class="calc">Pilih praktikum di atas untuk mengisi total jatah otomatis, lalu tentukan jumlah yang diambil untuk melihat sisa bahan.</p>
+        <button class="btn" type="submit">Kirim Konfirmasi &amp; Pengajuan Pengambilan</button>
     </form>
-    <h2>Status Konfirmasi & Pengambilan Bahan Saya</h2>
+    <h2>Status Konfirmasi &amp; Pengambilan Bahan Saya</h2>
     <?php mhs_table($milik, false, true); ?>
     <script>
     const selPd = document.getElementById('pengajuan_dosen_id');
-    const inTipe = document.getElementById('tipe_ambil'), inJatah = document.getElementById('total_jatah'), inJml = document.getElementById('jumlah');
+    const inKode = document.getElementById('kode');
+    const inNamaBahan = document.getElementById('nama_bahan_tampil');
+    const inJatah = document.getElementById('total_jatah');
+    const inJml = document.getElementById('jumlah');
+    const outSisa = document.getElementById('sisa_tampil');
+    const inKelas = document.getElementById('kelas');
+    const inSub = document.getElementById('sub_praktikum');
     const infoAmbil = document.getElementById('info_ambil');
+
     function syncAmbil() {
         const jatah = +inJatah.value || 0;
-        if (inTipe.value === 'penuh' && jatah > 0) {
-            inJml.value = jatah;
-        }
         const ambil = +inJml.value || 0;
-        const sisa = Math.max(0, jatah - ambil);
-        if (jatah > 0 && ambil > 0) {
-            infoAmbil.textContent = sisa > 0
-                ? `Pengambilan Sebagian: diambil sekarang ${ambil}, sisa ${sisa} dapat diambil pada tahap berikutnya.`
-                : `Pengambilan Penuh: seluruh jatah (${ambil}) diambil sekaligus.`;
+        let satuan = '';
+        if (selPd && selPd.selectedOptions && selPd.selectedOptions[0]) {
+            satuan = selPd.selectedOptions[0].dataset.satuan || '';
+        }
+
+        if (jatah <= 0) {
+            outSisa.value = '-';
+            outSisa.style.color = '';
+            infoAmbil.textContent = 'Pilih kegiatan praktikum untuk memuat bahan dan total jatah secara otomatis.';
+            return;
+        }
+
+        if (ambil <= 0) {
+            outSisa.value = jatah + (satuan ? ' ' + satuan : '');
+            outSisa.style.color = '';
+            infoAmbil.textContent = 'Total jatah: ' + jatah + ' ' + satuan + '. Silakan masukkan jumlah yang diambil.';
+            return;
+        }
+
+        const sisa = jatah - ambil;
+        if (ambil > jatah) {
+            outSisa.value = 'Melebihi jatah!';
+            outSisa.style.color = '#dc2626';
+            infoAmbil.textContent = 'Peringatan: Jumlah yang diambil (' + ambil + ') melebihi total jatah (' + jatah + ').';
+        } else if (sisa === 0) {
+            outSisa.value = '0 (Lunas / Penuh)';
+            outSisa.style.color = '#16a34a';
+            infoAmbil.textContent = 'Pengambilan penuh: seluruh jatah (' + ambil + ' ' + satuan + ') diambil sekaligus.';
+        } else {
+            outSisa.value = sisa + (satuan ? ' ' + satuan : '') + ' (Sisa)';
+            outSisa.style.color = '#d97706';
+            infoAmbil.textContent = 'Pengambilan sebagian: diambil ' + ambil + ' ' + satuan + ', sisa ' + sisa + ' ' + satuan + ' dapat diambil pada praktikum berikutnya.';
         }
     }
+
     if (selPd) {
         selPd.addEventListener('change', () => {
             const opt = selPd.selectedOptions[0];
             if (opt && opt.value) {
-                document.getElementById('kode').value = opt.dataset.kode || '';
-                document.getElementById('kelas').value = opt.dataset.kelas || '';
-                document.getElementById('sub_praktikum').value = opt.dataset.sub || '';
-                inJatah.value = opt.dataset.jatah || 10;
-                inJml.value = opt.dataset.jatah || 10;
+                if (inKode) inKode.value = opt.dataset.kode || '';
+                if (inNamaBahan) inNamaBahan.value = opt.dataset.nama || '';
+                if (inKelas) inKelas.value = opt.dataset.kelas || '';
+                if (inSub) inSub.value = opt.dataset.sub || '';
+                const jatah = opt.dataset.jatah || 10;
+                inJatah.value = jatah;
+                inJml.max = jatah;
+                syncAmbil();
+            } else {
+                if (inKode) inKode.value = '';
+                if (inNamaBahan) inNamaBahan.value = '';
+                if (inKelas) inKelas.value = '';
+                if (inSub) inSub.value = '';
+                inJatah.value = '';
+                inJml.value = '';
                 syncAmbil();
             }
         });
     }
-    [inTipe, inJatah, inJml].forEach(el => el && el.addEventListener('input', syncAmbil));
+
+    if (inJml) inJml.addEventListener('input', syncAmbil);
+    if (inJatah) inJatah.addEventListener('input', syncAmbil);
+    syncAmbil();
     </script>
     <?php
     require __DIR__ . '/partials/footer.php';
@@ -2121,37 +2255,156 @@ function fitur_pembelian() {
 function fitur_rekap() {
     $title = 'Rekap Kebutuhan dan Pembelian'; $active = 'rekap'; $d = db();
     $st = $_GET['status'] ?? '';
-    $rows = array_filter($d['pengajuan'], fn($r) => $st === '' || $r['status'] === $st);
+    $tab = $_GET['tab'] ?? $_GET['amp;tab'] ?? 'dosen';
+    if (!in_array($tab, ['dosen', 'pengadaan', 'praktikum', 'pembelian'], true)) {
+        $tab = 'dosen';
+    }
+
     $rowsDosen = array_filter($d['pengajuan_dosen'], fn($r) => $st === '' || $r['status'] === $st);
-    $menunggu = count(array_filter($d['pengajuan'], fn($r) => $r['status'] === 'menunggu'))
-              + count(array_filter($d['pengajuan_dosen'], fn($r) => $r['status'] === 'menunggu'));
-    $resetUrl = role_url('rekap');
+    $rowsPengadaan = array_filter($d['pengajuan'], fn($r) => $st === '' || $r['status'] === $st);
+    $rowsPembelian = array_filter($d['pembelian'], fn($r) => $st === '' || ($r['status'] ?? '') === $st);
+
+    $rekapGrup = [];
+    foreach ($d['permintaan'] as $r) {
+        if ($r['status'] === 'ditolak') continue;
+        $rekapGrup[($r['tanggal'] ?? '') . '|' . ($r['kelas'] ?? '-') . '|' . ($r['sub_praktikum'] ?? '-')] = true;
+    }
+    $cPraktikum = count($rekapGrup);
+
+    $tabs = [
+        'dosen' => ['Pengajuan Bahan Semester (Dosen ke PLP)', count($d['pengajuan_dosen'])],
+        'pengadaan' => ['Pengajuan Kebutuhan Pengadaan (PLP ke Kepala Lab)', count($d['pengajuan'])],
+        'praktikum' => ['Rekap Jumlah Mahasiswa Praktikum per Hari', $cPraktikum],
+        'pembelian' => ['Permintaan Pembelian', count($d['pembelian'])],
+    ];
+
+    $buildUrl = function($tKey, $statusVal = '') {
+        $params = [];
+        if (isset($_GET['fitur'])) $params['fitur'] = $_GET['fitur'];
+        $params['tab'] = $tKey;
+        if ($statusVal !== '') $params['status'] = $statusVal;
+        return '?' . http_build_query($params);
+    };
+
+    $resetUrl = $buildUrl($tab, '');
+
     require __DIR__ . '/partials/header.php';
     ?>
     <div class="cards">
-        <div><strong><?= count($d['pengajuan']) + count($d['pengajuan_dosen']) ?></strong><span>Total pengajuan</span></div>
-        <div><strong><?= $menunggu ?></strong><span>Menunggu tinjauan</span></div>
-        <div><strong><?= count($d['pembelian']) ?></strong><span>Permintaan pembelian</span></div>
-        <div><strong><?= count(array_filter($d['barang'], 'low')) ?></strong><span>Barang di bawah minimum</span></div>
+        <div><strong><?= count($d['pengajuan_dosen']) ?></strong><span>Pengajuan Dosen</span></div>
+        <div><strong><?= count($d['pengajuan']) ?></strong><span>Pengadaan PLP</span></div>
+        <div><strong><?= $cPraktikum ?></strong><span>Praktikum Harian</span></div>
+        <div><strong><?= count($d['pembelian']) ?></strong><span>Permintaan Pembelian</span></div>
     </div>
-    <form class="filter" method="get">
-        <input type="hidden" name="fitur" value="rekap">
-        <div><label for="status">Status pengajuan</label>
-        <select id="status" name="status"><option value="">Semua</option>
-        <?php foreach (['menunggu', 'disetujui', 'ditolak', 'dipesan'] as $s): ?><option value="<?= $s ?>"<?= $st === $s ? ' selected' : '' ?>><?= ucfirst($s) ?></option><?php endforeach; ?>
-        </select></div>
-        <button class="btn" type="submit">Terapkan</button><a class="reset" href="<?= e($resetUrl) ?>">Reset</a>
-    </form>
-    <h2>Pengajuan Bahan Semester (Dosen ke PLP)</h2>
-    <?php dosen_table(array_reverse($rowsDosen)); ?>
-    <h2>Pengajuan Kebutuhan Pengadaan (PLP ke Kepala Lab)</h2>
-    <?php req_table(array_reverse($rows)); ?>
-    <?php render_rekap_kehadiran_praktikum($d['permintaan']); ?>
-    <h2>Permintaan pembelian</h2>
-    <?php if (!$d['pembelian']): ?><p class="empty">Belum ada permintaan pembelian.</p><?php else: ?>
-    <div class="tablewrap"><table><tr><th>No</th><th>Tanggal</th><th>Barang</th><th>Jumlah</th><th>Status</th></tr>
-    <?php foreach (array_reverse($d['pembelian']) as $b): ?>
-    <tr><td><?= e($b['id']) ?></td><td><?= e($b['tanggal']) ?></td><td><?= e($b['nama']) ?></td><td><?= e($b['jumlah'] . ' ' . $b['satuan']) ?></td><td><?= chip($b['status']) ?></td></tr>
-    <?php endforeach; ?></table></div><?php endif;
+
+    <nav class="tabs" aria-label="Pilihan Rekap">
+    <?php foreach ($tabs as $tKey => [$tLabel, $tCount]): ?>
+        <a href="<?= e($buildUrl($tKey)) ?>"<?= $tKey === $tab ? ' class="on" aria-current="page"' : '' ?>>
+            <?= e($tLabel) ?>
+            <span class="badge" title="<?= e($tCount) ?> data"><?= e($tCount) ?></span>
+        </a>
+    <?php endforeach; ?>
+    </nav>
+    <?php
+
+    if ($tab === 'dosen') {
+        ?>
+        <form class="filter" method="get">
+            <?php if (isset($_GET['fitur'])): ?><input type="hidden" name="fitur" value="<?= e($_GET['fitur']) ?>"><?php endif; ?>
+            <input type="hidden" name="tab" value="dosen">
+            <div>
+                <label for="status">Status Pengajuan Dosen</label>
+                <select id="status" name="status">
+                    <option value="">Semua Status</option>
+                    <?php foreach (['menunggu', 'disetujui', 'ditolak'] as $s): ?>
+                    <option value="<?= $s ?>"<?= $st === $s ? ' selected' : '' ?>><?= ucfirst($s) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <button class="btn" type="submit">Terapkan</button>
+            <a class="reset" href="<?= e($resetUrl) ?>">Reset</a>
+        </form>
+        <h2>Pengajuan Bahan Semester (Dosen ke PLP)</h2>
+        <?php
+        if (!$rowsDosen) {
+            echo '<p class="empty">' . ($st !== '' ? 'Tidak ada data pengajuan dosen dengan status &quot;' . e($st) . '&quot;.' : 'Belum ada pengajuan bahan semester dari dosen.') . '</p>';
+        } else {
+            dosen_table(array_reverse($rowsDosen));
+        }
+    } elseif ($tab === 'pengadaan') {
+        ?>
+        <form class="filter" method="get">
+            <?php if (isset($_GET['fitur'])): ?><input type="hidden" name="fitur" value="<?= e($_GET['fitur']) ?>"><?php endif; ?>
+            <input type="hidden" name="tab" value="pengadaan">
+            <div>
+                <label for="status">Status Pengadaan</label>
+                <select id="status" name="status">
+                    <option value="">Semua Status</option>
+                    <?php foreach (['menunggu', 'disetujui', 'ditolak', 'dipesan'] as $s): ?>
+                    <option value="<?= $s ?>"<?= $st === $s ? ' selected' : '' ?>><?= ucfirst($s) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <button class="btn" type="submit">Terapkan</button>
+            <a class="reset" href="<?= e($resetUrl) ?>">Reset</a>
+        </form>
+        <h2>Pengajuan Kebutuhan Pengadaan (PLP ke Kepala Lab)</h2>
+        <?php
+        if (!$rowsPengadaan) {
+            echo '<p class="empty">' . ($st !== '' ? 'Tidak ada data pengadaan dengan status &quot;' . e($st) . '&quot;.' : 'Belum ada pengajuan kebutuhan pengadaan.') . '</p>';
+        } else {
+            req_table(array_reverse($rowsPengadaan));
+        }
+    } elseif ($tab === 'praktikum') {
+        if (empty($d['permintaan'])) {
+            echo '<h2>Rekap Jumlah Mahasiswa Praktikum per Hari</h2>';
+            echo '<p class="empty">Belum ada data konfirmasi praktikum mahasiswa.</p>';
+        } else {
+            render_rekap_kehadiran_praktikum($d['permintaan']);
+        }
+    } elseif ($tab === 'pembelian') {
+        ?>
+        <form class="filter" method="get">
+            <?php if (isset($_GET['fitur'])): ?><input type="hidden" name="fitur" value="<?= e($_GET['fitur']) ?>"><?php endif; ?>
+            <input type="hidden" name="tab" value="pembelian">
+            <div>
+                <label for="status">Status Pembelian</label>
+                <select id="status" name="status">
+                    <option value="">Semua Status</option>
+                    <?php foreach (['menunggu', 'disetujui', 'dipesan', 'selesai', 'ditolak'] as $s): ?>
+                    <option value="<?= $s ?>"<?= $st === $s ? ' selected' : '' ?>><?= ucfirst($s) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <button class="btn" type="submit">Terapkan</button>
+            <a class="reset" href="<?= e($resetUrl) ?>">Reset</a>
+        </form>
+        <h2>Permintaan Pembelian</h2>
+        <?php if (!$rowsPembelian): ?>
+            <p class="empty"><?= $st !== '' ? 'Tidak ada permintaan pembelian dengan status &quot;' . e($st) . '&quot;.' : 'Belum ada permintaan pembelian.' ?></p>
+        <?php else: ?>
+        <div class="tablewrap">
+            <table>
+                <tr>
+                    <th>No</th>
+                    <th>Tanggal</th>
+                    <th>Barang</th>
+                    <th>Jumlah</th>
+                    <th>Status</th>
+                </tr>
+                <?php foreach (array_reverse($rowsPembelian) as $b): ?>
+                <tr>
+                    <td><?= e($b['id']) ?></td>
+                    <td><?= e($b['tanggal']) ?></td>
+                    <td><?= e($b['nama']) ?></td>
+                    <td><?= e($b['jumlah'] . ' ' . $b['satuan']) ?></td>
+                    <td><?= chip($b['status']) ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </table>
+        </div>
+        <?php endif;
+    }
+
     require __DIR__ . '/partials/footer.php';
 }

@@ -34,12 +34,14 @@
             "email": "mhs@polban.ac.id",
             "nama": "Mahasiswa Contoh",
             "role": "mhs",
+            "nim": "231211001",
             "hash": "$2y$12$elnWViB9rmQp\/\/0GQc.FvujWnl5m0a0GKVUvRXhTmS3\/HpoBknKom"
         },
         {
             "email": "mahasiswa@polban.ac.id",
-            "nama": "Mahasiswa Contoh",
+            "nama": "Mahasiswa Contoh 2",
             "role": "mhs",
+            "nim": "231211002",
             "hash": "$2y$12$elnWViB9rmQp\/\/0GQc.FvujWnl5m0a0GKVUvRXhTmS3\/HpoBknKom"
         }
     ],
@@ -224,6 +226,7 @@
         {
             "id": 1,
             "tanggal": "2026-11-16",
+            "nim": "231211001",
             "oleh": "Mahasiswa Contoh",
             "oleh_email": "mhs@polban.ac.id",
             "pengajuan_dosen_id": 1,
@@ -244,7 +247,8 @@
         {
             "id": 2,
             "tanggal": "2026-11-16",
-            "oleh": "Mahasiswa Contoh",
+            "nim": "231211002",
+            "oleh": "Mahasiswa Contoh 2",
             "oleh_email": "mahasiswa@polban.ac.id",
             "pengajuan_dosen_id": 3,
             "kode": "MPK-0018",
@@ -311,5 +315,6 @@
             "dicek_plp": true,
             "dicek_oleh": "PLP"
         }
-    ]
+    ],
+    "rak_lokasi": []
 }
