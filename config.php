@@ -691,15 +691,19 @@ function fitur_rak() {
             $n = find_idx($d['barang'], 'kode', $_POST['kode'] ?? '');
             $rakTujuan = strtoupper(trim($_POST['rak_tujuan'] ?? ''));
             if ($n === null || $rakTujuan === '') go($redirect, 'Pilih barang dan rak tujuan.', 'bad');
+            if ($d['barang'][$n]['rak'] === $rakTujuan) {
+                go($redirect, "Barang {$d['barang'][$n]['nama']} sudah berada di Rak $rakTujuan.", 'warn');
+            }
             if (!isset($d['rak_kapasitas'][$rakTujuan])) $d['rak_kapasitas'][$rakTujuan] = 500;
             $infoTujuan = rak_info($d, $rakTujuan);
             $stokBarang = (int)$d['barang'][$n]['stok'];
-            if ($d['barang'][$n]['rak'] !== $rakTujuan && ($infoTujuan['terpakai'] + $stokBarang) > $infoTujuan['kapasitas']) {
-                go($redirect, "Kapasitas Rak $rakTujuan tidak mencukupi! Sisa kapasitas: {$infoTujuan['sisa']}, stok barang: $stokBarang.", 'bad');
+            if (($infoTujuan['terpakai'] + $stokBarang) > $infoTujuan['kapasitas']) {
+                go($redirect, "Kapasitas Rak $rakTujuan tidak mencukupi! Sisa kapasitas: {$infoTujuan['sisa']}, stok barang yang dipindah: $stokBarang.", 'bad');
             }
+            $rakAsal = $d['barang'][$n]['rak'];
             $d['barang'][$n]['rak'] = $rakTujuan;
             save($d);
-            go($redirect, "Barang {$d['barang'][$n]['nama']} dipindahkan ke Rak $rakTujuan.");
+            go($redirect, "Barang {$d['barang'][$n]['nama']} berhasil dipindahkan dari Rak $rakAsal ke Rak $rakTujuan.");
         }
     }
 
@@ -738,7 +742,9 @@ function fitur_rak() {
         <form class="box form" method="post">
             <?= field_csrf() ?>
             <input type="hidden" name="aksi_rak" value="kapasitas">
-            <label for="nama_rak">Nama Rak (Tambah / Ubah Kapasitas Rak)</label>
+            <h3 style="margin-top:0;margin-bottom:6px;font-size:16px">Tambah / Ubah Kapasitas Rak</h3>
+            <p class="muted" style="font-size:12px;margin:0 0 12px">Atur daya tampung maksimum rak serta lokasi ruangan &amp; lemari penyimpanannya.</p>
+            <label for="nama_rak">Nama Rak</label>
             <input id="nama_rak" name="nama_rak" placeholder="Contoh: A-01" required>
             <label for="kapasitas">Kapasitas Maksimum Rak (Total Unit/Satuan)</label>
             <input id="kapasitas" name="kapasitas" type="number" min="1" value="500" required>
@@ -760,20 +766,23 @@ function fitur_rak() {
         <form class="box form" method="post">
             <?= field_csrf() ?>
             <input type="hidden" name="aksi_rak" value="pindah_rak">
-            <label for="kode">Penempatan Bahan/Alat ke Rak</label>
+            <h3 style="margin-top:0;margin-bottom:6px;font-size:16px">Pindah / Relokasi Rak Barang</h3>
+            <p class="muted" style="font-size:12px;margin:0 0 12px">Menata ulang posisi penyimpanan barang yang sudah ada ke rak lain (jumlah stok tetap sama).</p>
+            <label for="kode">Pilih Barang yang Dipindahkan</label>
             <select id="kode" name="kode" required>
-                <option value="">Pilih barang</option>
+                <option value="">-- Pilih barang --</option>
                 <?php foreach ($d['barang'] as $b): ?>
-                <option value="<?= e($b['kode']) ?>"><?= e($b['nama'] . ' (' . $b['kode'] . ') - Stok: ' . $b['stok'] . ' ' . $b['satuan'] . ' [Rak ' . $b['rak'] . ']') ?></option>
+                <option value="<?= e($b['kode']) ?>"><?= e($b['nama'] . ' (' . $b['kode'] . ') - Stok: ' . $b['stok'] . ' ' . $b['satuan'] . ' [Saat ini di Rak ' . $b['rak'] . ']') ?></option>
                 <?php endforeach; ?>
             </select>
             <label for="rak_tujuan">Pilih Rak Tujuan</label>
             <select id="rak_tujuan" name="rak_tujuan" required>
+                <option value="">-- Pilih rak tujuan --</option>
                 <?php foreach (array_keys($byRak) as $rkName): $inf = rak_info($d, $rkName); ?>
                 <option value="<?= e($rkName) ?>">Rak <?= e($rkName) ?> (Terisi: <?= e($inf['terpakai'] . '/' . $inf['kapasitas']) ?>, Sisa: <?= e($inf['sisa']) ?>)</option>
                 <?php endforeach; ?>
             </select>
-            <button class="btn" type="submit">Simpan Penempatan Rak</button>
+            <button class="btn" type="submit">Pindahkan Barang ke Rak Tujuan</button>
         </form>
     </div>
     <?php endif; ?>
@@ -856,62 +865,92 @@ function fitur_masuk() {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         check_csrf();
         $d = db(); $n = find_idx($d['barang'], 'kode', $_POST['kode'] ?? ''); $jml = post_int('jumlah');
-        $rakPilih = trim($_POST['rak'] ?? '');
         if ($n === null || $jml < 1) go($redirect, 'Pilih barang dan isi jumlah lebih dari 0.', 'bad');
 
-        $targetRak = $rakPilih !== '' ? $rakPilih : $d['barang'][$n]['rak'];
+        // Barang otomatis masuk ke rak yang sudah ditentukan pada master barang tersebut
+        $targetRak = $d['barang'][$n]['rak'];
+        if (!isset($d['rak_kapasitas'][$targetRak])) $d['rak_kapasitas'][$targetRak] = 500;
         $rkInfo = rak_info($d, $targetRak);
-        // Logika penjumlahan bahan/alat ke dalam rak dan validasi kapasitas rak
+
+        // Validasi kapasitas rak penyimpanan barang
         if (($rkInfo['terpakai'] + $jml) > $rkInfo['kapasitas']) {
-            go($redirect, "Gagal menambahkan ke Rak $targetRak! Kapasitas maksimum rak ({$rkInfo['kapasitas']}) terlampaui. Terisi saat ini: {$rkInfo['terpakai']}, sisa kapasitas: {$rkInfo['sisa']}.", 'bad');
+            go($redirect, "Gagal menambahkan stok ke Rak $targetRak! Kapasitas maksimum rak ({$rkInfo['kapasitas']}) terlampaui. Terisi saat ini: {$rkInfo['terpakai']}, sisa kapasitas: {$rkInfo['sisa']}, jumlah masuk: $jml.", 'bad');
         }
 
-        $d['barang'][$n]['rak'] = $targetRak;
         $d['barang'][$n]['stok'] += $jml;
         $totalRakBaru = rak_terpakai($d['barang'], $targetRak);
         add_log($d, 'masuk', $d['barang'][$n]['kode'], $jml, "Rak $targetRak (Total isi rak: $totalRakBaru/{$rkInfo['kapasitas']}) - " . trim($_POST['catatan'] ?? ''));
         save($d);
         go($redirect, "Stok {$d['barang'][$n]['nama']} bertambah $jml {$d['barang'][$n]['satuan']} di Rak $targetRak (Kapasitas terpakai: $totalRakBaru/{$rkInfo['kapasitas']}).");
     }
-    $title = 'Barang Masuk & Penjumlahan ke Rak'; $active = 'masuk'; $d = db();
+    $title = 'Barang Masuk'; $active = 'masuk'; $d = db();
     $riwayat = array_slice(array_reverse(array_filter($d['log'], fn($l) => $l['jenis'] === 'masuk')), 0, 10);
     require __DIR__ . '/partials/header.php';
     ?>
     <form class="box form" method="post">
         <?= field_csrf() ?>
-        <label for="kode">Barang</label>
-        <select id="kode" name="kode" required><option value="">Pilih barang</option>
-        <?php foreach ($d['barang'] as $b): $rk = rak_info($d, $b['rak']); ?>
-            <option value="<?= e($b['kode']) ?>" data-rak="<?= e($b['rak']) ?>">
-                <?= e($b['nama'] . ' (' . $b['kode'] . '), stok ' . $b['stok'] . ' ' . $b['satuan'] . ' — Rak ' . $b['rak'] . ' [Sisa kapasitas rak: ' . $rk['sisa'] . ']') ?>
-            </option>
-        <?php endforeach; ?>
+        <label for="kode">Pilih Barang Masuk</label>
+        <select id="kode" name="kode" required>
+            <option value="">-- Pilih barang --</option>
+            <?php foreach ($d['barang'] as $b): $rk = rak_info($d, $b['rak']); $lok = rak_lokasi($d, $b['rak']); ?>
+                <option value="<?= e($b['kode']) ?>" 
+                        data-rak="<?= e($b['rak']) ?>" 
+                        data-stok="<?= e($b['stok']) ?>" 
+                        data-satuan="<?= e($b['satuan']) ?>"
+                        data-sisa="<?= e($rk['sisa']) ?>"
+                        data-kap="<?= e($rk['kapasitas']) ?>"
+                        data-terpakai="<?= e($rk['terpakai']) ?>"
+                        data-ruangan="<?= e($lok['ruangan']) ?>"
+                        data-lemari="<?= e($lok['lemari']) ?>">
+                    <?= e($b['nama'] . ' (' . $b['kode'] . ') — Rak ' . $b['rak'] . ' [Stok: ' . $b['stok'] . ' ' . $b['satuan'] . ', Sisa rak: ' . $rk['sisa'] . ']') ?>
+                </option>
+            <?php endforeach; ?>
         </select>
-        <div class="grid2">
-            <div>
-                <label for="jumlah">Jumlah masuk (dijumlahkan ke dalam rak)</label>
-                <input id="jumlah" name="jumlah" type="number" min="1" required>
-            </div>
-            <div>
-                <label for="rak">Simpan ke Rak</label>
-                <select id="rak" name="rak">
-                    <?php foreach (array_keys($d['rak_kapasitas']) as $rName): $rk = rak_info($d, $rName); ?>
-                    <option value="<?= e($rName) ?>">Rak <?= e($rName) ?> — Terpakai <?= e($rk['terpakai'] . '/' . $rk['kapasitas']) ?> (Status: <?= e($rk['status']) ?>)</option>
-                    <?php endforeach; ?>
-                </select>
+
+        <div id="info_rak_box" style="display:none;margin:8px 0 16px;padding:12px 14px;background:#F5F7FA;border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:6px">
+            <div style="font-size:13px;line-height:1.6">
+                <div>Lokasi Penyimpanan: <strong>Rak <span id="lbl_rak">-</span></strong> (<span id="lbl_lokasi">-</span>)</div>
+                <div>Status Kapasitas Rak: Terisi <strong id="lbl_terpakai">0</strong> / <span id="lbl_kap">0</span> &middot; Sisa Ruang Rak: <strong id="lbl_sisa" style="color:#27ae60">0</strong> unit</div>
+                <div class="muted" style="font-size:12px;margin-top:4px">*) Barang masuk otomatis disimpan ke rak di atas. Untuk memindahkan posisi barang ke rak lain, gunakan menu <strong>Rak &amp; Kapasitas</strong>.</div>
             </div>
         </div>
-        <label for="catatan">Catatan (asal barang, nomor pembelian)</label><textarea id="catatan" name="catatan" rows="2"></textarea>
-        <button class="btn" type="submit">Catat barang masuk & masukkan ke rak</button>
+
+        <div class="grid2">
+            <div>
+                <label for="jumlah">Jumlah Masuk (dijumlahkan ke dalam rak)</label>
+                <input id="jumlah" name="jumlah" type="number" min="1" placeholder="Masukkan jumlah barang" required>
+            </div>
+            <div>
+                <label for="catatan">Catatan / Asal Pengadaan</label>
+                <input id="catatan" name="catatan" placeholder="Contoh: Pengadaan Laboratorium 2026">
+            </div>
+        </div>
+        <button class="btn" type="submit">Catat Barang Masuk</button>
     </form>
     <h2>Riwayat terbaru</h2>
     <?php include __DIR__ . '/partials/log.php'; ?>
     <script>
-    const selBarang = document.getElementById('kode'), selRak = document.getElementById('rak');
-    if (selBarang && selRak) {
+    const selBarang = document.getElementById('kode');
+    const infoBox = document.getElementById('info_rak_box');
+    const lblRak = document.getElementById('lbl_rak');
+    const lblLokasi = document.getElementById('lbl_lokasi');
+    const lblTerpakai = document.getElementById('lbl_terpakai');
+    const lblKap = document.getElementById('lbl_kap');
+    const lblSisa = document.getElementById('lbl_sisa');
+
+    if (selBarang && infoBox) {
         selBarang.addEventListener('change', () => {
             const opt = selBarang.selectedOptions[0];
-            if (opt && opt.dataset.rak) selRak.value = opt.dataset.rak;
+            if (opt && opt.dataset.rak) {
+                lblRak.textContent = opt.dataset.rak;
+                lblLokasi.textContent = 'Ruangan: ' + opt.dataset.ruangan + ', Lemari: ' + opt.dataset.lemari;
+                lblTerpakai.textContent = opt.dataset.terpakai;
+                lblKap.textContent = opt.dataset.kap;
+                lblSisa.textContent = opt.dataset.sisa;
+                infoBox.style.display = 'block';
+            } else {
+                infoBox.style.display = 'none';
+            }
         });
     }
     </script>
