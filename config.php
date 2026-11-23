@@ -131,7 +131,7 @@ function seed() {
                 'ket' => 'Kelas: 2B - D3 Teknik Mesin | Sub: Bubut Bertingkat | 24 mhs × 10 cm (1 pcs = 100 cm, butuh 3 pcs)',
                 'status' => 'disetujui',
                 'diajukan_ke_kalab' => false,
-                'catatan' => 'Disetujui PLP untuk 1 semester',
+                'catatan' => 'Disetujui PLP untuk 2 semester',
             ],
             [
                 'id' => 2,
@@ -409,7 +409,7 @@ function req_table($rows, $tipe = '', $aksi = false, $approverLabel = 'Tinjau') 
 
 function dosen_table($rows, $aksi = false) {
     if (!$rows) { echo '<p class="empty">Belum ada pengajuan bahan semester dari dosen.</p>'; return; }
-    echo '<div class="tablewrap"><table><tr><th>No</th><th>Tanggal</th><th>Dosen</th><th>Nama Bahan</th><th>Ukuran/Mhs & Pcs</th><th>Total (1 Smt)</th><th>Kelas</th><th>Sub Praktikum</th><th>Status</th>' . ($aksi ? '<th>Tinjau & Set Stok Min (PLP)</th>' : '') . '</tr>';
+    echo '<div class="tablewrap"><table><tr><th>No</th><th>Tanggal</th><th>Dosen</th><th>Nama Bahan</th><th>Ukuran/Mhs & Pcs</th><th>Total (2 Smt)</th><th>Kelas</th><th>Sub Praktikum</th><th>Status</th>' . ($aksi ? '<th>Tinjau & Set Stok Min (PLP)</th>' : '') . '</tr>';
     foreach ($rows as $r) {
         $cat = ($r['catatan'] ?? '') !== '' ? '<br><small class="muted">Catatan: ' . e($r['catatan']) . '</small>' : '';
         $ukInfo = isset($r['ukuran_per_mhs']) && $r['ukuran_per_mhs'] > 0
@@ -1515,7 +1515,7 @@ function fitur_semua_pengajuan() {
     <h2>A. Daftar Pengajuan Kebutuhan PLP (Approval Kepala Lab)</h2>
     <?php req_table(array_reverse($rowsPlp)); ?>
 
-    <h2>B. Daftar Pengajuan Bahan Praktikum 1 Semester (Dosen ke PLP)</h2>
+    <h2>B. Daftar Pengajuan Bahan Praktikum 2 Semester (Dosen ke PLP)</h2>
     <?php dosen_table(array_reverse($rowsDosen)); ?>
 
     <h2>C. Daftar Permintaan Pembelian</h2>
@@ -1528,7 +1528,7 @@ function fitur_semua_pengajuan() {
 }
 
 // Dosen Point 1 & PLP Point 1:
-// Dosen mengajukan bahan praktikum 1 semester + bisa menambahkan bahan baru sesuai kebutuhan praktikum
+// Dosen mengajukan bahan praktikum 2 semester + bisa menambahkan bahan baru sesuai kebutuhan praktikum
 // + mencantumkan ukuran per mahasiswa dan ukuran per pcs
 function fitur_pengajuan_dosen() {
     $redirect = role_url('pengajuan_dosen');
@@ -1605,11 +1605,11 @@ function fitur_pengajuan_dosen() {
         save($d);
         go($redirect, "Pengajuan bahan praktikum {$b['nama']} ($jml {$b['satuan']} / $jmlPcs pcs) berhasil dikirim untuk ditinjau PLP.");
     }
-    $title = 'Pengajuan Bahan Praktikum (1 Semester)'; $active = 'pengajuan_dosen'; $d = db();
+    $title = 'Pengajuan Bahan Praktikum (2 Semester)'; $active = 'pengajuan_dosen'; $d = db();
     $milik = array_reverse(array_filter($d['pengajuan_dosen'], fn($r) => $r['oleh_email'] === $_SESSION['user']['email']));
     require __DIR__ . '/partials/header.php';
     ?>
-    <p class="sum">Ajukan bahan yang dibutuhkan untuk praktikum dalam 1 semester (bisa memilih bahan yang tersedia atau menambahkan bahan baru sesuai kebutuhan praktikum).</p>
+    <p class="sum">Ajukan bahan yang dibutuhkan untuk praktikum dalam 2 semester (bisa memilih bahan yang tersedia atau menambahkan bahan baru sesuai kebutuhan praktikum).</p>
     <form class="box form" method="post">
         <?= field_csrf() ?>
         <label for="kode">Nama Bahan Praktikum</label>
@@ -1637,7 +1637,7 @@ function fitur_pengajuan_dosen() {
         <div class="grid3">
             <div><label for="ukuran_per_mhs">Ukuran / Kebutuhan per Mahasiswa</label><input id="ukuran_per_mhs" name="ukuran_per_mhs" type="number" min="1" placeholder="Contoh: 20" required></div>
             <div><label for="jml_mhs">Jumlah Mahasiswa di Kelas</label><input id="jml_mhs" name="jml_mhs" type="number" min="1" placeholder="Contoh: 24" required></div>
-            <div><label for="jumlah">Total Kebutuhan (1 Semester)</label><input id="jumlah" name="jumlah" type="number" min="1" required></div>
+            <div><label for="jumlah">Total Kebutuhan (2 Semester)</label><input id="jumlah" name="jumlah" type="number" min="1" required></div>
         </div>
         <div class="grid2">
             <div><label for="kelas">Kelas</label><input id="kelas" name="kelas" placeholder="Contoh: 2B - D3 Teknik Mesin" required></div>
