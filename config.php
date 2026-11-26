@@ -1919,6 +1919,89 @@ function fitur_pengajuan_dosen() {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         check_csrf();
         $d = db();
+
+        // Mode 1: Submit banyak bahan sekaligus dari Katalog Kotak-Kotak + Form Pengajuan
+        if (!empty($_POST['items_json'])) {
+            $items = json_decode((string)$_POST['items_json'], true);
+            $jmlMhs = max(1, post_int('jml_mhs'));
+            $kelas = trim($_POST['kelas'] ?? '');
+            $sub = trim($_POST['sub_praktikum'] ?? '');
+            $namaPengaju = trim($_POST['nama_pengaju'] ?? $_SESSION['user']['nama']);
+
+            if (!is_array($items) || !$items || $kelas === '' || $sub === '') {
+                go($redirect, 'Pilih minimal satu bahan dari katalog, lalu lengkapi Kelas, Jumlah Mahasiswa, dan Mata Kuliah / Sub Praktikum.', 'bad');
+            }
+
+            $addedCount = 0;
+            $addedNames = [];
+            foreach ($items as $it) {
+                $ukPerMhs = max(1, (int)($it['uk_per_mhs'] ?? 0));
+                if ($ukPerMhs < 1) continue;
+                $jml = $ukPerMhs * $jmlMhs;
+
+                if (!empty($it['is_new'])) {
+                    $namaBaru = trim((string)($it['nama'] ?? ''));
+                    $spekBaru = trim((string)($it['spesifikasi'] ?? ''));
+                    $satuanBaru = trim((string)($it['satuan'] ?? 'cm')) ?: 'cm';
+                    $ukPcsBaru = max(1, (int)($it['ukuran_pcs'] ?? 100));
+                    if ($namaBaru === '') continue;
+                    $kodeBaru = 'MPK-' . str_pad((string)(count($d['barang']) + 25), 4, '0', STR_PAD_LEFT);
+                    $d['barang'][] = [
+                        'kode' => $kodeBaru,
+                        'nama' => $namaBaru,
+                        'spesifikasi' => $spekBaru !== '' ? $spekBaru : "1 pcs = $ukPcsBaru $satuanBaru",
+                        'satuan' => $satuanBaru,
+                        'ukuran_pcs' => $ukPcsBaru,
+                        'rak' => 'A-02',
+                        'minimum' => $jml,
+                        'stok' => 0,
+                        'foto' => '',
+                    ];
+                    $n = count($d['barang']) - 1;
+                } else {
+                    $n = find_idx($d['barang'], 'kode', $it['kode'] ?? '');
+                }
+
+                if ($n === null) continue;
+                $b = $d['barang'][$n];
+                $ukPcs = max(1, (int)($b['ukuran_pcs'] ?? 1));
+                $jmlPcs = (int)ceil($jml / $ukPcs);
+                $pesan = max(0, $jml - $b['stok']);
+
+                $d['pengajuan_dosen'][] = [
+                    'id' => count($d['pengajuan_dosen']) + 1,
+                    'tanggal' => date('Y-m-d'),
+                    'oleh' => $namaPengaju !== '' ? $namaPengaju : $_SESSION['user']['nama'],
+                    'oleh_email' => $_SESSION['user']['email'],
+                    'kode' => $b['kode'],
+                    'nama' => $b['nama'],
+                    'satuan' => $b['satuan'],
+                    'ukuran_pcs' => $ukPcs,
+                    'ukuran_per_mhs' => $ukPerMhs,
+                    'jml_mhs' => $jmlMhs,
+                    'jumlah' => $jml,
+                    'jml_pcs' => $jmlPcs,
+                    'stok' => $b['stok'],
+                    'pesan' => $pesan,
+                    'kelas' => $kelas,
+                    'sub_praktikum' => $sub,
+                    'ket' => "Kelas: $kelas | Sub: $sub | $jmlMhs mhs × $ukPerMhs {$b['satuan']} (1 pcs = $ukPcs {$b['satuan']}, butuh $jmlPcs pcs)",
+                    'status' => 'menunggu',
+                    'diajukan_ke_kalab' => false,
+                    'catatan' => '',
+                ];
+                $addedCount++;
+                $addedNames[] = "{$b['nama']} ($jml {$b['satuan']} / $jmlPcs pcs)";
+            }
+
+            if ($addedCount < 1) {
+                go($redirect, 'Tidak ada bahan valid yang diajukan. Pastikan jumlah/ukuran per mahasiswa lebih dari 0.', 'bad');
+            }
+            save($d);
+            go($redirect, "Pengajuan $addedCount jenis bahan praktikum 2 semester (" . implode(', ', $addedNames) . ") berhasil dikirim untuk ditinjau PLP.");
+        }
+
+        // Fallback Mode 2: Submit form tunggal
         $pilihanKode = $_POST['kode'] ?? '';
         $ukPerMhs = post_int('ukuran_per_mhs');
         $jmlMhs = post_int('jml_mhs');
@@ -1929,7 +2012,6 @@ function fitur_pengajuan_dosen() {
         $kelas = trim($_POST['kelas'] ?? '');
         $sub = trim($_POST['sub_praktikum'] ?? '');
 
-        // Penambahan bahan baru sesuai kebutuhan praktikum jika Dosen memilih '+ Tambah Bahan Baru'
         if ($pilihanKode === '__BARU__') {
             $namaBaru = trim($_POST['nama_baru'] ?? '');
             $spekBaru = trim($_POST['spesifikasi_baru'] ?? '');
@@ -1989,95 +2071,431 @@ function fitur_pengajuan_dosen() {
         save($d);
         go($redirect, "Pengajuan bahan praktikum {$b['nama']} ($jml {$b['satuan']} / $jmlPcs pcs) berhasil dikirim untuk ditinjau PLP.");
     }
-    $title = 'Halo, ' . $_SESSION['user']['nama']; $active = 'pengajuan_dosen'; $d = db();
+
+    $title = 'Pengajuan Bahan Praktikum (2 Semester)';
+    $active = 'pengajuan_dosen';
+    $d = db();
     $milik = array_reverse(array_filter($d['pengajuan_dosen'], fn($r) => $r['oleh_email'] === $_SESSION['user']['email']));
-    $cSetuju = count(array_filter($milik, fn($r) => $r['status'] === 'disetujui'));
-    $cTunggu = count(array_filter($milik, fn($r) => $r['status'] === 'menunggu'));
-    $cKalab  = count(array_filter($milik, fn($r) => !empty($r['diajukan_ke_kalab'])));
+
     require __DIR__ . '/partials/header.php';
     ?>
-    <div class="cards cards-3">
-        <div>
-            <span>Disetujui PLP (2 Semester)</span>
-            <strong><?= str_pad((string)$cSetuju, 2, '0', STR_PAD_LEFT) ?></strong>
-        </div>
-        <div>
-            <span>Menunggu persetujuan PLP</span>
-            <strong><?= str_pad((string)$cTunggu, 2, '0', STR_PAD_LEFT) ?></strong>
-        </div>
-        <div>
-            <span>Diteruskan ke Kepala Lab</span>
-            <strong><?= str_pad((string)$cKalab, 2, '0', STR_PAD_LEFT) ?></strong>
+
+    <!-- ======================================================================
+         TAHAP 1: KATALOG KOTAK-KOTAK BAHAN INDIVIDUAL + RINGKASAN PILIHAN
+         ====================================================================== -->
+    <div id="dsn_step_catalog">
+        <div class="dsn-catalog-layout">
+            <div>
+                <input type="search" id="dsn_search" class="dsn-search-input" placeholder="Cari nama bahan, kode, atau spesifikasi ...">
+
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+                    <h3 class="dsn-sec-title" style="margin:0">Bahan Habis Pakai Individual (Kebutuhan per Mahasiswa)</h3>
+                    <button type="button" class="btn sec" style="padding:7px 14px;font-size:12.5px" onclick="bukaModalBahanBaru()">+ Tambah Bahan Baru</button>
+                </div>
+
+                <div class="dsn-grid" id="dsn_bahan_grid">
+                    <?php foreach ($d['barang'] as $b):
+                        $isLow = low($b);
+                        $ukPcs = max(1, (int)($b['ukuran_pcs'] ?? 1));
+                        $stepVal = $b['satuan'] === 'cm' ? 5 : 1;
+                    ?>
+                    <article class="dsn-card dsn-bahan-card" id="card_<?= e($b['kode']) ?>" data-kode="<?= e($b['kode']) ?>" data-search="<?= e(strtolower($b['nama'] . ' ' . $b['kode'] . ' ' . $b['spesifikasi'])) ?>">
+                        <div>
+                            <h4><?= e($b['nama']) ?></h4>
+                            <p class="dsn-card-spec"><?= e($b['kode']) ?> &middot; <?= e($b['spesifikasi']) ?></p>
+                            <div class="dsn-card-stock">
+                                <span>Tersedia <?= e($b['stok'] . ' ' . $b['satuan']) ?></span>
+                                <span class="chip <?= $isLow ? 'warn' : 'ok' ?>"><?= $isLow ? 'Stok Terbatas' : 'Tersedia' ?></span>
+                            </div>
+                        </div>
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px">
+                            <div class="dsn-qty-ctrl">
+                                <button type="button" class="dsn-qty-btn" onclick="ubahQty('<?= e($b['kode']) ?>', -<?= $stepVal ?>)" aria-label="Kurangi">&minus;</button>
+                                <input type="number" min="0" value="0" class="dsn-qty-input" id="qty_<?= e($b['kode']) ?>" oninput="setQtyManual('<?= e($b['kode']) ?>', this.value)" aria-label="Ukuran per mahasiswa <?= e($b['nama']) ?>">
+                                <button type="button" class="dsn-qty-btn" onclick="ubahQty('<?= e($b['kode']) ?>', <?= $stepVal ?>)" aria-label="Tambah">+</button>
+                            </div>
+                            <small class="muted" style="font-size:11.5px;font-weight:600"><?= e($b['satuan']) ?> / mhs</small>
+                        </div>
+                    </article>
+                    <?php endforeach; ?>
+
+                    <!-- Kotak Tambah Bahan Baru Sesuai Kebutuhan Praktikum -->
+                    <article class="dsn-card dsn-card-new" data-search="tambah bahan baru custom">
+                        <div>
+                            <h4>+ Bahan Baru Praktikum</h4>
+                            <p class="dsn-card-spec">Belum ada di daftar katalog? Tambahkan bahan baru beserta spesifikasi &amp; ukuran per pcs.</p>
+                            <p class="dsn-card-highlight">Otomatis masuk ke master bahan</p>
+                        </div>
+                        <div class="dsn-card-actions">
+                            <button type="button" class="btn" onclick="bukaModalBahanBaru()">+ Tambah Bahan Baru</button>
+                        </div>
+                    </article>
+                </div>
+            </div>
+
+            <!-- Panel Kanan: Ringkasan Pilihan -->
+            <aside class="dsn-summary-panel" aria-label="Ringkasan Pilihan Bahan">
+                <h3>Ringkasan Pilihan</h3>
+                <div id="dsn_cart_list">
+                    <div class="dsn-sum-empty">Belum ada bahan dipilih.</div>
+                </div>
+                <div id="dsn_cart_footer" style="display:none">
+                    <div class="dsn-sum-total">
+                        <span>Total Kebutuhan / Mhs</span>
+                        <span id="dsn_cart_total_label">0 jenis</span>
+                    </div>
+                    <button type="button" class="btn dsn-btn-submit-step1" onclick="lanjutKeFormPengajuan()">Ajukan Bahan Praktikum</button>
+                </div>
+            </aside>
         </div>
     </div>
-    <?php
-    render_wf_steps('Alur pengajuan bahan praktikum (2 Semester)', [
-        'Ajukan bahan 2 semester',
-        'Diverifikasi PLP & set stok min',
-        'Disetujui Kepala Lab',
-        'Bahan siap dipakai praktikum',
-    ], $cKalab > 0 ? 3 : ($cSetuju > 0 ? 2 : 1), 'Dosen dapat memilih bahan yang tersedia atau menambahkan bahan baru sesuai kebutuhan praktikum 2 semester.');
-    ?>
-    <form class="box form" method="post">
-        <?= field_csrf() ?>
-        <label for="kode">Nama Bahan Praktikum</label>
-        <select id="kode" name="kode" required>
-            <option value="">Pilih bahan praktikum</option>
-            <?php foreach ($d['barang'] as $b): ?>
-            <option value="<?= e($b['kode']) ?>" data-satuan="<?= e($b['satuan']) ?>" data-pcs="<?= e($b['ukuran_pcs'] ?? 1) ?>">
-                <?= e($b['nama'] . ' - ' . $b['spesifikasi'] . ' (1 pcs = ' . ($b['ukuran_pcs'] ?? 1) . ' ' . $b['satuan'] . ')') ?>
-            </option>
-            <?php endforeach; ?>
-            <option value="__BARU__">+ Tambah Bahan Baru Sesuai Kebutuhan Praktikum</option>
-        </select>
 
-        <div id="box_bahan_baru" style="display:none;background:#F5F7FA;border:1px dashed #AAB4C3;padding:12px;border-radius:6px;margin-bottom:12px">
-            <div class="grid2">
-                <div><label for="nama_baru">Nama Bahan Baru</label><input id="nama_baru" name="nama_baru" placeholder="Contoh: Aluminium Silinder"></div>
-                <div><label for="spesifikasi_baru">Spesifikasi / Ukuran per Pcs</label><input id="spesifikasi_baru" name="spesifikasi_baru" placeholder="Contoh: Ø25 mm, panjang 100 cm"></div>
+    <!-- ======================================================================
+         TAHAP 2: RINGKASAN ITEM & FORM PENGAJUAN BAHAN (2 SEMESTER)
+         ====================================================================== -->
+    <div id="dsn_step_form" style="display:none;margin-bottom:28px">
+        <button type="button" class="dsn-back-btn" onclick="kembaliKeKatalog()">&lt; Kembali ke Katalog</button>
+        <h2 style="margin:0 0 14px;font-size:24px">Ajukan Kebutuhan Bahan Praktikum (2 Semester)</h2>
+
+        <div class="box">
+            <h3 style="margin:0 0 4px">Ringkasan Item Pengajuan Bahan</h3>
+            <p class="muted" style="font-size:13px;margin:0 0 14px">Periksa kembali daftar bahan praktikum yang akan diajukan untuk 2 semester. Total kebutuhan dihitung otomatis dari ukuran per mahasiswa &times; jumlah mahasiswa.</p>
+            <div class="tablewrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>No</th>
+                            <th>Nama Bahan</th>
+                            <th>Kategori</th>
+                            <th>Spesifikasi &amp; Ukuran Pcs</th>
+                            <th>Ukuran / Mhs</th>
+                            <th>Total (2 Smt)</th>
+                            <th>Status Stok</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dsn_review_tbody"></tbody>
+                </table>
             </div>
-            <div class="grid2">
-                <div><label for="satuan_baru">Satuan Ukuran</label><input id="satuan_baru" name="satuan_baru" value="cm" placeholder="cm / pcs / lembar"></div>
-                <div><label for="ukuran_pcs_baru">Ukuran per 1 Pcs / Batang</label><input id="ukuran_pcs_baru" name="ukuran_pcs_baru" type="number" min="1" value="100"></div>
+            <div class="dsn-sum-total" style="margin-top:12px">
+                <span>Total Keseluruhan Bahan Diajukan</span>
+                <span id="dsn_review_total_badge">0 jenis</span>
             </div>
         </div>
 
-        <div class="grid3">
-            <div><label for="ukuran_per_mhs">Ukuran / Kebutuhan per Mahasiswa</label><input id="ukuran_per_mhs" name="ukuran_per_mhs" type="number" min="1" placeholder="Contoh: 20" required></div>
-            <div><label for="jml_mhs">Jumlah Mahasiswa di Kelas</label><input id="jml_mhs" name="jml_mhs" type="number" min="1" placeholder="Contoh: 24" required></div>
-            <div><label for="jumlah">Total Kebutuhan (2 Semester)</label><input id="jumlah" name="jumlah" type="number" min="1" required></div>
+        <form class="box form" method="post" id="dsn_form_submit">
+            <?= field_csrf() ?>
+            <input type="hidden" name="items_json" id="dsn_items_json" value="">
+
+            <h3 style="margin:0 0 12px">Form Pengajuan Bahan Praktikum</h3>
+            <div class="dsn-section-label">1. Data Dosen &amp; Kelas Praktikum (Kebutuhan 2 Semester)</div>
+
+            <div class="grid2">
+                <div>
+                    <label for="f_nama_pengaju">Nama dosen pengaju *</label>
+                    <input id="f_nama_pengaju" name="nama_pengaju" value="<?= e($_SESSION['user']['nama']) ?>" required>
+                </div>
+                <div>
+                    <label for="f_identitas">NIP / Email institusi *</label>
+                    <input id="f_identitas" value="<?= e($_SESSION['user']['email']) ?>" readonly style="background:#F8FAFC">
+                </div>
+            </div>
+
+            <div class="grid2">
+                <div>
+                    <label for="f_kelas">Kelas / Program Studi *</label>
+                    <input id="f_kelas" name="kelas" placeholder="mis. 2B - D3 Teknik Mesin" required>
+                </div>
+                <div>
+                    <label for="f_jml_mhs">Jumlah mahasiswa di kelas (2 Semester) *</label>
+                    <input id="f_jml_mhs" name="jml_mhs" type="number" min="1" value="24" placeholder="mis. 24" required oninput="renderReviewTable()">
+                </div>
+            </div>
+
+            <div class="grid2">
+                <div>
+                    <label for="f_sub_praktikum">Mata kuliah / Sub Praktikum *</label>
+                    <input id="f_sub_praktikum" name="sub_praktikum" placeholder="mis. Bubut Bertingkat / Praktik Pemesinan" required>
+                </div>
+                <div>
+                    <label for="f_semester_info">Periode Kebutuhan</label>
+                    <input id="f_semester_info" value="2 Semester (Ganjil & Genap)" readonly style="background:#F8FAFC;font-weight:600">
+                </div>
+            </div>
+
+            <p id="dsn_calc_summary" class="calc" style="margin-top:6px"></p>
+
+            <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px">
+                <button type="button" class="btn sec" onclick="kembaliKeKatalog()">Ubah Pilihan Bahan</button>
+                <button type="submit" class="btn">Kirim Pengajuan ke PLP</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Modal Tambah Bahan Baru -->
+    <div class="dsn-modal-backdrop" id="modal_bahan_baru">
+        <div class="dsn-modal form">
+            <h3>Tambah Bahan Praktikum Baru</h3>
+            <p class="muted" style="font-size:13px;margin:0 0 14px">Tambahkan bahan habis pakai baru yang belum ada di katalog untuk diajukan ke PLP.</p>
+            <label for="mb_nama">Nama Bahan Baru *</label>
+            <input id="mb_nama" placeholder="Contoh: Aluminium Silinder">
+            <label for="mb_spek">Spesifikasi / Ukuran *</label>
+            <input id="mb_spek" placeholder="Contoh: Ø25 mm, 1 pcs = 100 cm">
+            <div class="grid3">
+                <div>
+                    <label for="mb_satuan">Satuan *</label>
+                    <input id="mb_satuan" value="cm" placeholder="cm / lembar / pcs">
+                </div>
+                <div>
+                    <label for="mb_uk_pcs">Ukuran per 1 Pcs *</label>
+                    <input id="mb_uk_pcs" type="number" min="1" value="100">
+                </div>
+                <div>
+                    <label for="mb_uk_mhs">Ukuran / Mhs *</label>
+                    <input id="mb_uk_mhs" type="number" min="1" value="15">
+                </div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">
+                <button type="button" class="btn sec" onclick="tutupModal('modal_bahan_baru')">Batal</button>
+                <button type="button" class="btn" onclick="simpanBahanBaruKeKatalog()">Tambahkan &amp; Pilih</button>
+            </div>
         </div>
-        <div class="grid2">
-            <div><label for="kelas">Kelas</label><input id="kelas" name="kelas" placeholder="Contoh: 2B - D3 Teknik Mesin" required></div>
-            <div><label for="sub_praktikum">Nama / Sub Praktikum</label><input id="sub_praktikum" name="sub_praktikum" placeholder="Contoh: Bubut Bertingkat" required></div>
-        </div>
-        <p id="info_pcs_dosen" class="calc" aria-live="polite">Pilih bahan dan isi ukuran per mahasiswa serta jumlah mahasiswa untuk melihat konversi kebutuhan per pcs.</p>
-        <button class="btn" type="submit">Ajukan Bahan Praktikum</button>
-    </form>
-    <h2>Status Pengajuan Bahan Semester Saya</h2>
+    </div>
+
+    <h2>Status Pengajuan Bahan 2 Semester Saya</h2>
     <?php dosen_table($milik); ?>
+
     <script>
-    const selKode = document.getElementById('kode'), boxBaru = document.getElementById('box_bahan_baru');
-    const inUk = document.getElementById('ukuran_per_mhs'), inMhs = document.getElementById('jml_mhs'), inTotal = document.getElementById('jumlah');
-    const infoPcs = document.getElementById('info_pcs_dosen');
-    function updateDosenCalc() {
-        const isBaru = selKode.value === '__BARU__';
-        boxBaru.style.display = isBaru ? 'block' : 'none';
-        const uk = +inUk.value || 0, mhs = +inMhs.value || 0;
-        if (uk > 0 && mhs > 0) {
-            inTotal.value = uk * mhs;
-        }
-        const total = +inTotal.value || 0;
-        const opt = selKode.selectedOptions[0];
-        const sat = isBaru ? (document.getElementById('satuan_baru').value || 'satuan') : (opt ? (opt.dataset.satuan || '') : '');
-        const uPcs = isBaru ? (+document.getElementById('ukuran_pcs_baru').value || 1) : (opt ? (+opt.dataset.pcs || 1) : 1);
-        if (total > 0 && sat) {
-            const pcs = Math.ceil(total / Math.max(1, uPcs));
-            infoPcs.textContent = `Perhitungan: ${mhs} mahasiswa × ${uk} ${sat}/mahasiswa = ${total} ${sat} (Setara ≈ ${pcs} pcs @ ${uPcs} ${sat}/pcs).`;
-        }
+    const MASTER_BAHAN = <?= json_encode(array_values($d['barang']), JSON_UNESCAPED_UNICODE) ?>;
+
+    // Map bahan by kode
+    const bahanMap = {};
+    MASTER_BAHAN.forEach(b => {
+        bahanMap[b.kode] = {
+            kode: b.kode,
+            nama: b.nama,
+            spesifikasi: b.spesifikasi,
+            satuan: b.satuan,
+            ukuran_pcs: +(b.ukuran_pcs || 1),
+            stok: +(b.stok || 0),
+            minimum: +(b.minimum || 0),
+            is_new: false
+        };
+    });
+
+    // Cart menyimpan { kode: uk_per_mhs }
+    const cart = {};
+
+    function ubahQty(kode, delta) {
+        const cur = +(cart[kode] || 0);
+        const next = Math.max(0, cur + delta);
+        setQty(kode, next);
     }
-    selKode.addEventListener('change', updateDosenCalc);
-    [inUk, inMhs, inTotal, document.getElementById('satuan_baru'), document.getElementById('ukuran_pcs_baru')].forEach(el => el && el.addEventListener('input', updateDosenCalc));
+
+    function setQtyManual(kode, val) {
+        const num = Math.max(0, parseInt(val, 10) || 0);
+        setQty(kode, num);
+    }
+
+    function setQty(kode, qty) {
+        if (qty <= 0) {
+            delete cart[kode];
+            qty = 0;
+        } else {
+            cart[kode] = qty;
+        }
+        const inp = document.getElementById('qty_' + kode);
+        if (inp && +inp.value !== qty) inp.value = qty;
+        const card = document.getElementById('card_' + kode);
+        if (card) card.classList.toggle('selected', qty > 0);
+        renderCartSidebar();
+    }
+
+    function bukaModalBahanBaru() {
+        document.getElementById('modal_bahan_baru').classList.add('open');
+    }
+
+    function tutupModal(id) {
+        document.getElementById(id).classList.remove('open');
+    }
+
+    function simpanBahanBaruKeKatalog() {
+        const nama = document.getElementById('mb_nama').value.trim();
+        const spek = document.getElementById('mb_spek').value.trim();
+        const satuan = document.getElementById('mb_satuan').value.trim() || 'cm';
+        const ukPcs = Math.max(1, parseInt(document.getElementById('mb_uk_pcs').value, 10) || 100);
+        const ukMhs = Math.max(1, parseInt(document.getElementById('mb_uk_mhs').value, 10) || 10);
+        if (!nama) {
+            alert('Masukkan nama bahan baru terlebih dahulu.');
+            return;
+        }
+        const kode = 'BARU-' + (Object.keys(bahanMap).length + 1);
+        const fullSpek = spek || (`1 pcs = ${ukPcs} ${satuan}`);
+        bahanMap[kode] = {
+            kode: kode,
+            nama: nama,
+            spesifikasi: fullSpek,
+            satuan: satuan,
+            ukuran_pcs: ukPcs,
+            stok: 0,
+            minimum: 0,
+            is_new: true
+        };
+
+        // Tambahkan kartu baru ke grid
+        const grid = document.getElementById('dsn_bahan_grid');
+        const stepVal = satuan === 'cm' ? 5 : 1;
+        const art = document.createElement('article');
+        art.className = 'dsn-card dsn-bahan-card selected';
+        art.id = 'card_' + kode;
+        art.dataset.kode = kode;
+        art.dataset.search = (nama + ' ' + fullSpek).toLowerCase();
+        art.innerHTML = `
+            <div>
+                <h4>${esc(nama)}</h4>
+                <p class="dsn-card-spec">Bahan Baru &middot; ${esc(fullSpek)}</p>
+                <div class="dsn-card-stock">
+                    <span>Stok 0 ${esc(satuan)}</span>
+                    <span class="chip warn">Bahan Baru</span>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px">
+                <div class="dsn-qty-ctrl">
+                    <button type="button" class="dsn-qty-btn" onclick="ubahQty('${kode}', -${stepVal})">&minus;</button>
+                    <input type="number" min="0" value="${ukMhs}" class="dsn-qty-input" id="qty_${kode}" oninput="setQtyManual('${kode}', this.value)">
+                    <button type="button" class="dsn-qty-btn" onclick="ubahQty('${kode}', ${stepVal})">+</button>
+                </div>
+                <small class="muted" style="font-size:11.5px;font-weight:600">${esc(satuan)} / mhs</small>
+            </div>
+        `;
+        grid.insertBefore(art, grid.lastElementChild);
+
+        setQty(kode, ukMhs);
+        document.getElementById('mb_nama').value = '';
+        document.getElementById('mb_spek').value = '';
+        tutupModal('modal_bahan_baru');
+    }
+
+    function renderCartSidebar() {
+        const listEl = document.getElementById('dsn_cart_list');
+        const footEl = document.getElementById('dsn_cart_footer');
+        const totalLbl = document.getElementById('dsn_cart_total_label');
+        const keys = Object.keys(cart);
+
+        if (keys.length === 0) {
+            listEl.innerHTML = '<div class="dsn-sum-empty">Belum ada bahan dipilih.</div>';
+            footEl.style.display = 'none';
+            return;
+        }
+
+        let html = '';
+        keys.forEach(kode => {
+            const b = bahanMap[kode];
+            const qty = cart[kode];
+            if (!b) return;
+            const stepVal = b.satuan === 'cm' ? 5 : 1;
+            const statusChip = b.is_new
+                ? '<span class="chip warn">Bahan Baru</span>'
+                : '<span class="chip ok">Tersedia</span>';
+            html += `
+                <div class="dsn-sum-item">
+                    <div class="dsn-sum-head">
+                        <strong>${esc(b.nama)}</strong>
+                        ${statusChip}
+                    </div>
+                    <div class="dsn-sum-spec">${esc(b.spesifikasi)} (${qty} ${esc(b.satuan)}/mhs)</div>
+                    <div class="dsn-sum-ctrl">
+                        <div class="dsn-qty-ctrl">
+                            <button type="button" class="dsn-qty-btn" onclick="ubahQty('${kode}', -${stepVal})">&minus;</button>
+                            <input type="number" min="1" value="${qty}" class="dsn-qty-input" oninput="setQtyManual('${kode}', this.value)">
+                            <button type="button" class="dsn-qty-btn" onclick="ubahQty('${kode}', ${stepVal})">+</button>
+                        </div>
+                        <button type="button" class="dsn-btn-del" onclick="setQty('${kode}', 0)">Hapus</button>
+                    </div>
+                </div>
+            `;
+        });
+
+        listEl.innerHTML = html;
+        totalLbl.textContent = `${keys.length} jenis bahan`;
+        footEl.style.display = 'block';
+    }
+
+    function lanjutKeFormPengajuan() {
+        if (Object.keys(cart).length === 0) return;
+        document.getElementById('dsn_step_catalog').style.display = 'none';
+        document.getElementById('dsn_step_form').style.display = 'block';
+        renderReviewTable();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function kembaliKeKatalog() {
+        document.getElementById('dsn_step_form').style.display = 'none';
+        document.getElementById('dsn_step_catalog').style.display = 'block';
+    }
+
+    function renderReviewTable() {
+        const tbody = document.getElementById('dsn_review_tbody');
+        const jmlMhs = Math.max(1, parseInt(document.getElementById('f_jml_mhs').value, 10) || 1);
+        const keys = Object.keys(cart);
+        tbody.innerHTML = '';
+
+        const payload = [];
+        let totalPcsAll = 0;
+
+        keys.forEach((kode, idx) => {
+            const b = bahanMap[kode];
+            const ukMhs = cart[kode];
+            if (!b) return;
+            const total2Smt = ukMhs * jmlMhs;
+            const pcs = Math.ceil(total2Smt / Math.max(1, b.ukuran_pcs));
+            totalPcsAll += pcs;
+
+            payload.push({
+                kode: b.kode,
+                nama: b.nama,
+                spesifikasi: b.spesifikasi,
+                satuan: b.satuan,
+                ukuran_pcs: b.ukuran_pcs,
+                uk_per_mhs: ukMhs,
+                is_new: !!b.is_new
+            });
+
+            const cukup = !b.is_new && b.stok >= total2Smt;
+            const chipHtml = b.is_new
+                ? '<span class="chip warn">Bahan Baru</span>'
+                : (cukup ? '<span class="chip ok">Stok Cukup</span>' : '<span class="chip warn">Perlu Pengadaan</span>');
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${idx + 1}</td>
+                <td><strong>${esc(b.nama)}</strong></td>
+                <td>Bahan Habis Pakai</td>
+                <td>${esc(b.spesifikasi)} (1 pcs = ${b.ukuran_pcs} ${esc(b.satuan)})</td>
+                <td>${ukMhs} ${esc(b.satuan)} / mhs</td>
+                <td><strong>${total2Smt} ${esc(b.satuan)}</strong> (≈ ${pcs} pcs)</td>
+                <td>${chipHtml}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        document.getElementById('dsn_review_total_badge').textContent = `${keys.length} jenis bahan (≈ ${totalPcsAll} pcs untuk ${jmlMhs} mhs)`;
+        document.getElementById('dsn_items_json').value = JSON.stringify(payload);
+        document.getElementById('dsn_calc_summary').textContent =
+            `Ringkasan Perhitungan 2 Semester: ${keys.length} jenis bahan untuk ${jmlMhs} mahasiswa (Total setara ≈ ${totalPcsAll} pcs/batang). Setelah dikirim, PLP akan meninjau dan menetapkan stok minimum.`;
+    }
+
+    // Live search filter pada katalog kotak-kotak
+    document.getElementById('dsn_search').addEventListener('input', function () {
+        const q = this.value.trim().toLowerCase();
+        document.querySelectorAll('#dsn_bahan_grid .dsn-card').forEach(card => {
+            const hay = card.dataset.search || '';
+            card.style.display = (q === '' || hay.includes(q)) ? '' : 'none';
+        });
+    });
+
+    function esc(s) {
+        return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
     </script>
     <?php
     require __DIR__ . '/partials/footer.php';

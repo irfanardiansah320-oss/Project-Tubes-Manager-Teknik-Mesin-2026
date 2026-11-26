@@ -152,6 +152,29 @@
             "diajukan_ke_kalab": true,
             "catatan": "ya ini batasnya bos",
             "disetujui_oleh": "PLP (Pranata Laboratorium Pendidikan)"
+        },
+        {
+            "id": 4,
+            "tanggal": "2026-11-26",
+            "oleh": "zidan",
+            "oleh_email": "dosen@polban.ac.id",
+            "kode": "MPK-0012",
+            "nama": "Baja pejal",
+            "satuan": "cm",
+            "ukuran_pcs": 100,
+            "ukuran_per_mhs": 30,
+            "jml_mhs": 30,
+            "jumlah": 900,
+            "jml_pcs": 9,
+            "stok": 10,
+            "pesan": 890,
+            "kelas": "2D - Teknik Mesin",
+            "sub_praktikum": "Las",
+            "ket": "Kelas: 2D - Teknik Mesin | Sub: Las | 30 mhs × 30 cm (1 pcs = 100 cm, butuh 9 pcs)",
+            "status": "disetujui",
+            "diajukan_ke_kalab": true,
+            "catatan": "",
+            "disetujui_oleh": "PLP (Pranata Laboratorium Pendidikan)"
         }
     ],
     "pengajuan": [
@@ -220,6 +243,28 @@
             "status": "disetujui",
             "disetujui_oleh": "Kepala Lab (Kepala Lab)",
             "catatan": "Disetujui langsung oleh Kepala Lab dari daftar pengajuan PLP"
+        },
+        {
+            "id": 4,
+            "tanggal": "2026-11-26",
+            "oleh": "PLP",
+            "oleh_email": "plp@polban.ac.id",
+            "pengajuan_dosen_id": 4,
+            "kode": "MPK-0012",
+            "nama": "Baja pejal",
+            "satuan": "cm",
+            "ukuran_pcs": 100,
+            "ukuran_per_mhs": 30,
+            "jml_mhs": 30,
+            "jml_pcs": 10,
+            "minimum_baru": 120,
+            "jumlah": 990,
+            "stok": 10,
+            "pesan": 980,
+            "ket": "Las - 2D - Teknik Mesin: 30 mhs × 30 cm (+tol 10% = 990 cm \/ 10 pcs @100 cm), stok 10, perlu dipesan 980 cm (10 pcs), stok min: 120 cm",
+            "status": "menunggu",
+            "disetujui_oleh": "",
+            "catatan": ""
         }
     ],
     "permintaan": [
