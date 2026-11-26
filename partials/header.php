@@ -5,6 +5,13 @@ $roleFile = ROLE_FILES[$roleKey] ?? 'index.php';
 $menus = ROLE_MENUS[$roleKey] ?? [];
 $activeKey = str_replace('.php', '', $active ?? '');
 $flash = flash();
+
+$themeInfo = role_theme_meta($roleKey, $activeKey);
+$badges = sidebar_badges($roleKey);
+$menuGroups = role_menu_groups($roleKey, $menus);
+$labName = $u['lab'] ?? 'Lab Permesinan';
+$roleLabel = ROLES[$u['role']] ?? ucfirst($u['role']);
+$headerCta = page_header_cta($roleKey, $activeKey, $roleFile);
 ?>
 <!doctype html>
 <html lang="id">
@@ -12,20 +19,53 @@ $flash = flash();
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title><?= e($title) ?> - <?= APP_NAME ?></title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/style.css">
 </head>
-<body class="app">
-<header class="topbar">
-    <strong>INVENTARIS BARANG</strong>
-    <form class="who" action="logout.php" method="post"><?= e($u['nama']) ?><?= !empty($u['nim']) ? ' (' . e($u['nim']) . ')' : '' ?> <small>(<?= e(ROLES[$u['role']] ?? $u['role']) ?>)</small> <button class="linkbtn">Keluar</button></form>
-</header>
+<body class="app role-<?= e($roleKey) ?>" style="--theme:<?= e($themeInfo['theme']) ?>;--theme-box:<?= e($themeInfo['box']) ?>;--theme-soft:<?= e($themeInfo['soft']) ?>;--theme-border:<?= e($themeInfo['border']) ?>">
 <div class="shell">
-<nav class="menu" aria-label="Menu utama">
-<?php foreach ($menus as $fitur => $label): ?>
-    <a href="<?= e("$roleFile?fitur=$fitur") ?>"<?= $fitur === $activeKey ? ' class="on" aria-current="page"' : '' ?>><?= e($label) ?></a>
-<?php endforeach; ?>
-</nav>
-<main>
-<h1><?= e($title) ?></h1>
-<?php if ($flash): ?><p class="flash <?= e($flash[1]) ?>" role="status"><?= e($flash[0]) ?></p><?php endif; ?>
+    <aside class="sidebar" aria-label="Navigasi utama">
+        <div class="sb-brand">Inventaris Lab</div>
+
+        <nav class="sb-nav" aria-label="Menu utama">
+            <?php foreach ($menuGroups as $groupTitle => $groupItems): ?>
+            <div class="sb-group">
+                <div class="sb-group-title"><?= e($groupTitle) ?></div>
+                <?php foreach ($groupItems as $fitur => $label):
+                    $isOn = ($fitur === $activeKey);
+                    $bCount = $badges[$fitur] ?? 0;
+                ?>
+                <a href="<?= e("$roleFile?fitur=$fitur") ?>"<?= $isOn ? ' class="on" aria-current="page"' : '' ?>>
+                    <span class="sb-link-text"><?= e($label) ?></span>
+                    <?php if ($bCount > 0): ?>
+                        <span class="sb-badge" title="<?= e($bCount) ?> tugas menunggu"><?= e($bCount) ?></span>
+                    <?php endif; ?>
+                </a>
+                <?php endforeach; ?>
+            </div>
+            <?php endforeach; ?>
+        </nav>
+
+        <div class="sb-user">
+            <div class="sb-user-name"><?= e($u['nama']) ?><?= !empty($u['nim']) ? ' · ' . e($u['nim']) : '' ?></div>
+            <div class="sb-user-role"><?= e($themeInfo['role_short']) ?> &middot; <?= e($labName) ?></div>
+            <form action="logout.php" method="post" class="sb-logout-form">
+                <button type="submit" class="sb-logout-btn">Keluar</button>
+            </form>
+        </div>
+    </aside>
+
+    <main>
+        <div class="page-head">
+            <div class="page-head-left">
+                <h1><?= e($title) ?></h1>
+                <span class="mod-pill"><?= e($themeInfo['modul']) ?></span>
+            </div>
+            <div class="page-head-right">
+                <span class="context-label"><?= e($themeInfo['role_short']) ?><?= !empty($u['nim']) ? ' · ' . e($u['nama']) . ' · ' . e($u['nim']) : ' · ' . e($labName) ?></span>
+                <?php if ($headerCta): ?>
+                    <a class="btn head-cta" href="<?= e($headerCta['url']) ?>"><?= e($headerCta['label']) ?></a>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php if ($flash): ?><p class="flash <?= e($flash[1]) ?>" role="status"><?= e($flash[0]) ?></p><?php endif; ?>

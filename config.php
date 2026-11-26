@@ -378,6 +378,146 @@ function chip($s) {
     return '<span class="chip ' . $c . '">' . e($label) . '</span>';
 }
 
+// Konfigurasi warna sidebar, grup menu, badge tugas, dan tombol aksi utama per role sesuai Wireframe v4
+function role_theme_meta($roleKey, $activeKey = '') {
+    $themes = [
+        'teknisi' => [
+            'theme' => '#165B33',
+            'box' => '#226B40',
+            'soft' => '#E9F3EC',
+            'border' => '#D2E5D8',
+            'role_short' => 'Teknisi',
+            'modul' => in_array($activeKey, ['masuk', 'keluar', 'tinjau'], true) ? 'Modul: Transaksi Bahan' : 'Modul: Bahan Habis Pakai',
+        ],
+        'plp' => [
+            'theme' => '#0F5C5C',
+            'box' => '#1B6B6B',
+            'soft' => '#E6F2F2',
+            'border' => '#CCE3E3',
+            'role_short' => 'PLP / Teknisi',
+            'modul' => in_array($activeKey, ['cek_barang'], true) ? 'Modul: Verifikasi & Opname' : (in_array($activeKey, ['pengajuan', 'pembelian'], true) ? 'Modul: Pengadaan Bahan' : 'Modul: Pemakaian & Pengajuan'),
+        ],
+        'dosen' => [
+            'theme' => '#1A44A7',
+            'box' => '#2753BA',
+            'soft' => '#EBF0FA',
+            'border' => '#D0DCF5',
+            'role_short' => 'Dosen Pengampu',
+            'modul' => 'Modul: Pengajuan 2 Semester',
+        ],
+        'mhs' => [
+            'theme' => '#1A44A7',
+            'box' => '#2753BA',
+            'soft' => '#EBF0FA',
+            'border' => '#D0DCF5',
+            'role_short' => 'Mahasiswa',
+            'modul' => 'Modul: Pengambilan Praktikum',
+        ],
+        'kalab' => [
+            'theme' => '#4E2A7F',
+            'box' => '#5E3891',
+            'soft' => '#EFEAF6',
+            'border' => '#DCD0EC',
+            'role_short' => 'Kalab',
+            'modul' => 'Modul: Bahan Inventaris',
+        ],
+        'kajur' => [
+            'theme' => '#2D3A4A',
+            'box' => '#3B4A5C',
+            'soft' => '#EBEEF2',
+            'border' => '#D5DCE4',
+            'role_short' => 'Kajur',
+            'modul' => 'Modul: Monitoring Bahan',
+        ],
+    ];
+    return $themes[$roleKey] ?? $themes['teknisi'];
+}
+
+function role_menu_groups($roleKey, $flatMenus) {
+    $groups = [
+        'teknisi' => [
+            'BAHAN INVENTARIS' => ['dashboard', 'stok', 'rak', 'peringatan'],
+            'TRANSAKSI & OPNAME' => ['masuk', 'keluar', 'tinjau', 'stockopname'],
+        ],
+        'plp' => [
+            'PENGAJUAN & PENGADAAN' => ['dashboard', 'tinjau', 'pengajuan', 'pembelian', 'rekap'],
+            'VERIFIKASI & OPNAME' => ['cek_barang'],
+            'LIHAT BAHAN' => ['stok', 'rak', 'peringatan'],
+        ],
+        'kalab' => [
+            'KALAB' => ['approval_kalab', 'semua_pengajuan', 'peringatan'],
+        ],
+        'kajur' => [
+            'KAJUR' => ['dashboard', 'stok', 'rak', 'rekap'],
+        ],
+        'dosen' => [
+            'PENGAJU (DOSEN)' => ['pengajuan_dosen'],
+        ],
+        'mhs' => [
+            'PRAKTIKAN (MAHASISWA)' => ['permintaan'],
+        ],
+    ];
+    $map = $groups[$roleKey] ?? ['MENU UTAMA' => array_keys($flatMenus)];
+    $result = [];
+    foreach ($map as $gName => $keys) {
+        foreach ($keys as $k) {
+            if (isset($flatMenus[$k])) {
+                $result[$gName][$k] = $flatMenus[$k];
+            }
+        }
+    }
+    return $result ?: ['MENU UTAMA' => $flatMenus];
+}
+
+function sidebar_badges($roleKey) {
+    $d = db();
+    $lowCount = count(array_filter($d['barang'], 'low'));
+    $waitDosen = count(array_filter($d['pengajuan_dosen'], fn($r) => ($r['status'] ?? '') === 'menunggu'));
+    $waitMhs = count(array_filter($d['permintaan'], fn($r) => ($r['status'] ?? '') === 'menunggu'));
+    $waitKalab = count(array_filter($d['pengajuan'], fn($r) => ($r['status'] ?? '') === 'menunggu'));
+    $waitOpname = count(array_filter($d['stockopname'], fn($r) => ($r['status'] ?? '') === 'menunggu_cek_plp'));
+    $readyBeli = count(array_filter($d['pengajuan'], fn($r) => ($r['status'] ?? '') === 'disetujui' && ($r['pesan'] ?? 0) > 0));
+
+    return [
+        'peringatan' => $lowCount,
+        'tinjau' => $roleKey === 'plp' ? ($waitDosen + $waitMhs) : $waitMhs,
+        'approval_kalab' => $waitKalab,
+        'cek_barang' => $waitOpname,
+        'pembelian' => $readyBeli,
+        'pengajuan_dosen' => count(array_filter($d['pengajuan_dosen'], fn($r) => ($r['oleh_email'] ?? '') === ($_SESSION['user']['email'] ?? '') && ($r['status'] ?? '') === 'menunggu')),
+        'permintaan' => count(array_filter($d['permintaan'], fn($r) => ($r['oleh_email'] ?? '') === ($_SESSION['user']['email'] ?? '') && ($r['status'] ?? '') === 'menunggu')),
+    ];
+}
+
+function page_header_cta($roleKey, $activeKey, $roleFile) {
+    if ($roleKey === 'teknisi') {
+        if (in_array($activeKey, ['dashboard', 'stok'], true)) return ['label' => '+ Barang Masuk', 'url' => "$roleFile?fitur=masuk"];
+        if ($activeKey === 'rak') return ['label' => '+ Atur Kapasitas Rak', 'url' => "$roleFile?fitur=rak#nama_rak"];
+    } elseif ($roleKey === 'plp') {
+        if ($activeKey === 'dashboard') return ['label' => '+ Pengajuan ke Kalab', 'url' => "$roleFile?fitur=pengajuan"];
+        if ($activeKey === 'tinjau') return ['label' => '+ Teruskan ke Kalab', 'url' => "$roleFile?fitur=pengajuan"];
+    } elseif ($roleKey === 'kalab') {
+        if ($activeKey === 'semua_pengajuan') return ['label' => 'Tinjau Approval PLP', 'url' => "$roleFile?fitur=approval_kalab"];
+    } elseif ($roleKey === 'kajur') {
+        if ($activeKey === 'dashboard') return ['label' => 'Lihat Rekap Lengkap', 'url' => "$roleFile?fitur=rekap"];
+    }
+    return null;
+}
+
+function render_wf_steps($title, $steps, $activeStep = 1, $note = '') {
+    echo '<div class="wf-steps-box">';
+    if ($title !== '') echo '<div class="wf-steps-title">' . e($title) . '</div>';
+    echo '<div class="wf-steps">';
+    foreach ($steps as $idx => $label) {
+        $num = $idx + 1;
+        $doneClass = $num <= $activeStep ? ' done' : '';
+        echo '<div class="wf-step' . $doneClass . '"><span class="wf-step-num">' . e($num) . '</span><span class="wf-step-label">' . e($label) . '</span></div>';
+    }
+    echo '</div>';
+    if ($note !== '') echo '<p class="wf-steps-note">' . e($note) . '</p>';
+    echo '</div>';
+}
+
 function req_table($rows, $tipe = '', $aksi = false, $approverLabel = 'Tinjau') {
     if (!$rows) { echo '<p class="empty">Belum ada data pengajuan.</p>'; return; }
     echo '<div class="tablewrap"><table><tr><th>No</th><th>Tanggal</th><th>Pengaju</th><th>Barang</th><th>Ukuran / Mhs & Pcs</th><th>Total Kebutuhan</th><th>Perlu Dipesan</th><th>Stok Min</th><th>Keterangan</th><th>Status</th>' . ($aksi ? '<th>' . e($approverLabel) . '</th>' : '') . '</tr>';
@@ -561,61 +701,277 @@ function render_rekap_kehadiran_praktikum($permintaan, $allowBulkApprove = false
    ========================================================================== */
 
 function fitur_dashboard() {
-    $all = items();
+    $d = db();
+    $all = $d['barang'];
+    $role = norm_role($_SESSION['user']['role'] ?? 'teknisi');
     $q = strtolower(trim($_GET['q'] ?? ''));
     $rak = $_GET['rak'] ?? '';
     $st = $_GET['status'] ?? '';
     $raks = array_values(array_unique(array_column($all, 'rak'))); sort($raks);
     $list = array_filter($all, function ($i) use ($q, $rak, $st) {
-        if ($q !== '' && !str_contains(strtolower($i['nama'] . ' ' . $i['kode']), $q)) return false;
+        if ($q !== '' && !str_contains(strtolower($i['nama'] . ' ' . $i['kode'] . ' ' . $i['spesifikasi']), $q)) return false;
         if ($rak !== '' && $i['rak'] !== $rak) return false;
         if ($st === 'low' && !low($i)) return false;
         if ($st === 'ok' && low($i)) return false;
         return true;
     });
-    $lowCount = count(array_filter($all, 'low'));
-    $title = 'Dashboard'; $active = 'dashboard';
+    $lowItems = array_filter($all, 'low');
+    $lowCount = count($lowItems);
+    $amanCount = count($all) - $lowCount;
+
+    $waitDosen = array_filter($d['pengajuan_dosen'], fn($r) => ($r['status'] ?? '') === 'menunggu');
+    $waitMhs = array_filter($d['permintaan'], fn($r) => ($r['status'] ?? '') === 'menunggu');
+    $waitOpname = array_filter($d['stockopname'], fn($r) => ($r['status'] ?? '') === 'menunggu_cek_plp');
+
+    $title = $role === 'kajur' ? 'Dashboard Kajur (Monitoring Bahan)' : ($role === 'plp' ? 'Dashboard Pengelolaan Bahan' : 'Dashboard Bahan Habis Pakai');
+    $active = 'dashboard';
     $resetUrl = role_url('dashboard');
     require __DIR__ . '/partials/header.php';
     ?>
-    <p class="sum"><?= count($all) ?> jenis barang, <strong><?= $lowCount ?></strong> di bawah minimum.</p>
-    <form class="filter" method="get">
-        <input type="hidden" name="fitur" value="dashboard">
-        <div><label for="q">Cari barang</label><input id="q" name="q" value="<?= e($_GET['q'] ?? '') ?>" placeholder="Nama atau kode"></div>
-        <div><label for="rak">Rak</label>
-            <select id="rak" name="rak"><option value="">Semua rak</option>
-            <?php foreach ($raks as $r): ?><option value="<?= e($r) ?>"<?= $r === $rak ? ' selected' : '' ?>><?= e($r) ?></option><?php endforeach; ?>
-            </select></div>
-        <div><label for="status">Status stok</label>
-            <select id="status" name="status">
-                <option value="">Semua</option>
-                <option value="low"<?= $st === 'low' ? ' selected' : '' ?>>Di bawah minimum</option>
-                <option value="ok"<?= $st === 'ok' ? ' selected' : '' ?>>Aman</option>
-            </select></div>
-        <button class="btn" type="submit">Terapkan</button>
-        <a class="reset" href="<?= e($resetUrl) ?>">Reset</a>
-    </form>
-    <?php if (!$list): ?><p class="empty">Tidak ada barang yang cocok. Ubah atau reset filter.</p><?php endif; ?>
-    <?php foreach ($list as $i): $isLow = low($i); $foto = 'assets/img/' . $i['foto']; ?>
-    <article class="item<?= $isLow ? ' low' : '' ?>">
-        <?php if ($i['foto'] && file_exists(__DIR__ . '/' . $foto)): ?>
-            <img class="foto" src="<?= e($foto) ?>" alt="Foto <?= e($i['nama']) ?>">
-        <?php else: ?><div class="foto">Foto belum ada</div><?php endif; ?>
-        <dl class="info">
-            <div class="wide"><dt>Nama barang</dt><dd class="nm"><?= e($i['nama']) ?></dd></div>
-            <div><dt>Kode</dt><dd><?= e($i['kode']) ?></dd></div>
-            <div class="wide"><dt>Spesifikasi</dt><dd><?= e($i['spesifikasi']) ?></dd></div>
-            <div><dt>Rak</dt><dd><?= e($i['rak']) ?></dd></div>
-            <div><dt>Satuan / Ukuran Pcs</dt><dd><?= e($i['satuan']) ?> (1 pcs = <?= e($i['ukuran_pcs'] ?? 1) ?> <?= e($i['satuan']) ?>)</dd></div>
-            <div><dt>Minimum</dt><dd><?= e($i['minimum']) ?> <?= e($i['satuan']) ?></dd></div>
-        </dl>
-        <div class="stok">
-            <span>Stok</span><strong><?= e($i['stok']) ?></strong><span><?= e($i['satuan']) ?></span>
-            <div class="bar" aria-hidden="true"><i style="width:<?= stok_pct($i) ?>%"></i></div>
-            <span class="chip <?= $isLow ? 'bad' : 'ok' ?>"><?= $isLow ? 'Di bawah minimum' : 'Aman' ?></span>
+
+    <?php if ($role === 'plp'): ?>
+        <!-- KPI Cards gaya Wireframe v4 Page 17 (PLP / Teknisi) -->
+        <div class="cards">
+            <div>
+                <span>Pengajuan masuk (Dosen &amp; Mhs)</span>
+                <strong><?= str_pad((string)(count($waitDosen) + count($waitMhs)), 2, '0', STR_PAD_LEFT) ?></strong>
+            </div>
+            <div>
+                <span>Jenis bahan tersedia</span>
+                <strong><?= str_pad((string)$amanCount, 2, '0', STR_PAD_LEFT) ?></strong>
+            </div>
+            <div>
+                <span>Stok di bawah minimum</span>
+                <strong><?= str_pad((string)$lowCount, 2, '0', STR_PAD_LEFT) ?></strong>
+            </div>
+            <div>
+                <span>Menunggu verifikasi opname</span>
+                <strong><?= str_pad((string)count($waitOpname), 2, '0', STR_PAD_LEFT) ?></strong>
+            </div>
         </div>
-    </article>
-    <?php endforeach;
+
+        <div class="grid2" style="margin-bottom:18px">
+            <div class="box" style="margin-bottom:0">
+                <h3>Pengajuan masuk dari Dosen &amp; Mahasiswa</h3>
+                <?php
+                $antreanPlp = [];
+                foreach (array_reverse($waitDosen) as $wd) {
+                    $antreanPlp[] = ['pengaju' => $wd['oleh'] . ' (Dosen)', 'isi' => $wd['nama'] . ' · ' . $wd['jumlah'] . ' ' . $wd['satuan'], 'url' => role_url('tinjau') . '&tab=dosen'];
+                }
+                foreach (array_reverse($waitMhs) as $wm) {
+                    $antreanPlp[] = ['pengaju' => $wm['oleh'] . ' (' . ($wm['kelas'] ?? 'Mhs') . ')', 'isi' => $wm['nama'] . ' · ' . $wm['jumlah'] . ' ' . $wm['satuan'], 'url' => role_url('tinjau') . '&tab=mhs'];
+                }
+                $antreanPlp = array_slice($antreanPlp, 0, 4);
+                ?>
+                <?php if (!$antreanPlp): ?>
+                    <p class="muted" style="margin:0;font-size:13px">Tidak ada pengajuan baru yang menunggu tinjauan PLP.</p>
+                <?php else: ?>
+                    <div class="tablewrap"><table>
+                        <tr><th>Pengaju</th><th>Bahan &amp; Kebutuhan</th><th>Aksi</th></tr>
+                        <?php foreach ($antreanPlp as $ap): ?>
+                        <tr>
+                            <td><?= e($ap['pengaju']) ?></td>
+                            <td><?= e($ap['isi']) ?></td>
+                            <td><a class="btn" href="<?= e($ap['url']) ?>" style="padding:6px 14px;font-size:12.5px">Proses</a></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </table></div>
+                <?php endif; ?>
+            </div>
+
+            <div class="box" style="margin-bottom:0">
+                <h3>Perlu perhatian (Stok Kritis &amp; Opname)</h3>
+                <div class="tablewrap"><table>
+                    <tr><th>Bahan / Rak</th><th>Keterangan</th><th>Status</th></tr>
+                    <?php foreach (array_slice($lowItems, 0, 3) as $li): ?>
+                    <tr>
+                        <td><strong><?= e($li['nama']) ?></strong> (Rak <?= e($li['rak']) ?>)</td>
+                        <td>Sisa <?= e($li['stok']) ?> / min <?= e($li['minimum'] . ' ' . $li['satuan']) ?></td>
+                        <td><span class="chip bad">Di bawah minimum</span></td>
+                    </tr>
+                    <?php endforeach; ?>
+                    <?php foreach (array_slice(array_reverse($waitOpname), 0, 2) as $wo): ?>
+                    <tr>
+                        <td><strong><?= e($wo['nama']) ?></strong> (Rak <?= e($wo['rak']) ?>)</td>
+                        <td>Fisik: <?= e($wo['stok_fisik'] . ' ' . $wo['satuan']) ?> (Oleh <?= e($wo['oleh']) ?>)</td>
+                        <td><a href="<?= e(role_url('cek_barang')) ?>" class="chip warn" style="text-decoration:none">Menunggu cek PLP</a></td>
+                    </tr>
+                    <?php endforeach; ?>
+                    <?php if (!$lowItems && !$waitOpname): ?>
+                    <tr><td colspan="3" class="muted">Semua stok bahan aman dan opname terverifikasi.</td></tr>
+                    <?php endif; ?>
+                </table></div>
+            </div>
+        </div>
+
+    <?php elseif ($role === 'kajur'): ?>
+        <!-- KPI Cards gaya Wireframe v4 Page 36 (Dashboard Kajur monitoring) -->
+        <div class="cards cards-3">
+            <div>
+                <span>Pengadaan diajukan ke Kalab</span>
+                <strong><?= str_pad((string)count($d['pengajuan']), 2, '0', STR_PAD_LEFT) ?></strong>
+            </div>
+            <div>
+                <span>Total jenis bahan praktikum</span>
+                <strong><?= str_pad((string)count($all), 2, '0', STR_PAD_LEFT) ?></strong>
+            </div>
+            <div>
+                <span>Bahan di bawah minimum</span>
+                <strong><?= str_pad((string)$lowCount, 2, '0', STR_PAD_LEFT) ?></strong>
+            </div>
+        </div>
+
+        <div class="box">
+            <h3>Ringkasan Pengajuan Pengadaan &amp; Kebutuhan Bahan</h3>
+            <?php if (!$d['pengajuan']): ?>
+                <p class="muted" style="margin:0">Belum ada pengajuan pengadaan bahan.</p>
+            <?php else: ?>
+                <div class="tablewrap"><table>
+                    <tr><th>No. Dokumen</th><th>Bahan &amp; Kebutuhan</th><th>Status Approval Kalab</th><th>Aksi</th></tr>
+                    <?php foreach (array_slice(array_reverse($d['pengajuan']), 0, 4) as $pg): ?>
+                    <tr>
+                        <td><strong>#PG-<?= str_pad((string)$pg['id'], 3, '0', STR_PAD_LEFT) ?></strong></td>
+                        <td><?= e($pg['nama']) ?> — <?= e($pg['jumlah'] . ' ' . $pg['satuan']) ?> (Pesan: <?= e($pg['pesan'] . ' ' . $pg['satuan']) ?>)</td>
+                        <td><?= chip($pg['status']) ?></td>
+                        <td><a class="btn" href="<?= e(role_url('rekap') . '&tab=pengadaan') ?>" style="padding:6px 14px;font-size:12.5px">Monitoring</a></td>
+                    </tr>
+                    <?php endforeach; ?>
+                </table></div>
+            <?php endif; ?>
+        </div>
+
+    <?php else: ?>
+        <!-- KPI Cards gaya Wireframe v4 Page 7 (Teknisi / Inventaris Bahan) -->
+        <div class="cards">
+            <div>
+                <span>Total jenis bahan</span>
+                <strong><?= str_pad((string)count($all), 2, '0', STR_PAD_LEFT) ?></strong>
+            </div>
+            <div>
+                <span>Stok aman</span>
+                <strong><?= str_pad((string)$amanCount, 2, '0', STR_PAD_LEFT) ?></strong>
+            </div>
+            <div>
+                <span>Konfirmasi mhs menunggu</span>
+                <strong><?= str_pad((string)count($waitMhs), 2, '0', STR_PAD_LEFT) ?></strong>
+            </div>
+            <div>
+                <span>Di bawah minimum</span>
+                <strong><?= str_pad((string)$lowCount, 2, '0', STR_PAD_LEFT) ?></strong>
+            </div>
+        </div>
+
+        <div class="grid3" style="margin-bottom:18px">
+            <div class="box" style="margin-bottom:0">
+                <h3>Bahan di bawah stok minimum</h3>
+                <?php if (!$lowItems): ?>
+                    <p class="muted" style="font-size:13px;margin:0">Semua bahan berada di atas stok minimum.</p>
+                <?php else: ?>
+                    <div class="tablewrap"><table>
+                        <tr><th>Bahan</th><th>Stok</th><th>Status</th></tr>
+                        <?php foreach (array_slice($lowItems, 0, 3) as $li): ?>
+                        <tr>
+                            <td><?= e($li['nama']) ?></td>
+                            <td><?= e($li['stok'] . '/' . $li['minimum'] . ' ' . $li['satuan']) ?></td>
+                            <td><span class="chip bad">Kurang</span></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </table></div>
+                <?php endif; ?>
+                <div style="margin-top:12px"><a class="btn sec" href="<?= e(role_url('peringatan')) ?>" style="padding:6px 14px;font-size:12.5px">Lihat semua</a></div>
+            </div>
+
+            <div class="box" style="margin-bottom:0">
+                <h3>Sebaran bahan per rak</h3>
+                <div class="tablewrap"><table>
+                    <tr><th>Rak</th><th>Terisi</th><th>Status</th></tr>
+                    <?php foreach (array_keys($d['rak_kapasitas']) as $rkName): $rkInf = rak_info($d, $rkName); ?>
+                    <tr>
+                        <td><strong>Rak <?= e($rkName) ?></strong></td>
+                        <td><?= e($rkInf['terpakai'] . ' / ' . $rkInf['kapasitas']) ?></td>
+                        <td><span class="chip <?= e($rkInf['chip']) ?>"><?= e($rkInf['status']) ?></span></td>
+                    </tr>
+                    <?php endforeach; ?>
+                </table></div>
+            </div>
+
+            <div class="box" style="margin-bottom:0">
+                <h3>Perubahan data terakhir</h3>
+                <?php if (!$d['log']): ?>
+                    <p class="muted" style="font-size:13px;margin:0">Belum ada log aktivitas pemasukan/pengeluaran.</p>
+                <?php else: ?>
+                    <div class="tablewrap"><table>
+                        <tr><th>Kejadian</th><th>Oleh</th></tr>
+                        <?php foreach (array_slice(array_reverse($d['log']), 0, 3) as $lg): ?>
+                        <tr>
+                            <td><?= e(ucfirst($lg['jenis']) . ' ' . $lg['kode'] . ' (' . $lg['jumlah'] . ')') ?></td>
+                            <td><?= e($lg['oleh']) ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </table></div>
+                <?php endif; ?>
+            </div>
+        </div>
+    <?php endif; ?>
+
+    <!-- Pencarian & Katalog Bahan gaya Wireframe v4 Page 8 (Cari Alat / Katalog Card Grid) -->
+    <div class="box">
+        <h3>Pencarian &amp; Filter Katalog Bahan Habis Pakai</h3>
+        <form method="get" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+            <input type="hidden" name="fitur" value="dashboard">
+            <div style="flex:2;min-width:220px">
+                <label for="q">Cari bahan</label>
+                <input id="q" name="q" value="<?= e($_GET['q'] ?? '') ?>" placeholder="Ketik nama bahan, spesifikasi, atau kode inventaris..." style="width:100%;padding:9px 12px;border:1px solid #CBD5E1;border-radius:10px">
+            </div>
+            <div style="flex:1;min-width:150px">
+                <label for="rak">Lokasi Rak</label>
+                <select id="rak" name="rak" style="width:100%;padding:9px 12px;border:1px solid #CBD5E1;border-radius:10px;background:#fff">
+                    <option value="">Semua rak</option>
+                    <?php foreach ($raks as $r): ?><option value="<?= e($r) ?>"<?= $r === $rak ? ' selected' : '' ?>>Rak <?= e($r) ?></option><?php endforeach; ?>
+                </select>
+            </div>
+            <button class="btn" type="submit">Cari</button>
+            <?php if ($q !== '' || $rak !== '' || $st !== ''): ?><a class="reset" href="<?= e($resetUrl) ?>">Reset</a><?php endif; ?>
+        </form>
+        <div class="pill-bar">
+            <a class="pill-filter<?= $st === '' && $rak === '' ? ' on' : '' ?>" href="<?= e($resetUrl) ?>">Semua (<?= count($all) ?>)</a>
+            <a class="pill-filter<?= $st === 'ok' ? ' on' : '' ?>" href="<?= e($resetUrl . '&status=ok') ?>">Tersedia / Aman (<?= $amanCount ?>)</a>
+            <a class="pill-filter<?= $st === 'low' ? ' on' : '' ?>" href="<?= e($resetUrl . '&status=low') ?>">Di Bawah Minimum (<?= $lowCount ?>)</a>
+            <?php foreach ($raks as $r): ?>
+                <a class="pill-filter<?= $rak === $r ? ' on' : '' ?>" href="<?= e($resetUrl . '&rak=' . urlencode($r)) ?>">Rak <?= e($r) ?></a>
+            <?php endforeach; ?>
+        </div>
+    </div>
+
+    <?php if (!$list): ?><p class="empty">Tidak ada bahan yang cocok. Ubah atau reset filter.</p><?php endif; ?>
+
+    <div class="catalog-grid">
+        <?php foreach ($list as $i):
+            $isLow = low($i);
+            $lok = rak_lokasi($d, $i['rak']);
+            $lokStr = ($lok['ruangan'] !== 'Belum diatur' ? $lok['ruangan'] . ' › ' : '')
+                    . ($lok['lemari'] !== 'Belum diatur' ? $lok['lemari'] . ' › ' : '')
+                    . 'Rak ' . $i['rak'];
+        ?>
+        <article class="catalog-card">
+            <div>
+                <h3><?= e($i['nama']) ?></h3>
+                <div class="catalog-meta"><?= e($i['kode']) ?> &middot; <?= e($i['spesifikasi']) ?></div>
+                <div class="catalog-loc" style="margin-top:10px"><?= e($lokStr) ?></div>
+                <div style="margin-top:10px;font-size:13px;display:flex;justify-content:space-between">
+                    <span>Stok: <strong><?= e($i['stok'] . ' ' . $i['satuan']) ?></strong></span>
+                    <span class="muted">Min: <?= e($i['minimum'] . ' ' . $i['satuan']) ?></span>
+                </div>
+                <div class="bar" aria-hidden="true"><i style="width:<?= stok_pct($i) ?>%;background:<?= $isLow ? '#D92D20' : 'var(--theme)' ?>"></i></div>
+            </div>
+            <div class="catalog-foot">
+                <span class="chip <?= $isLow ? 'bad' : 'ok' ?>"><?= $isLow ? 'Di bawah minimum' : 'Tersedia' ?></span>
+                <a class="btn sec" href="<?= e(role_url('stok')) ?>" style="padding:6px 14px;font-size:12.5px">Detail Stok</a>
+            </div>
+        </article>
+        <?php endforeach; ?>
+    </div>
+    <?php
     require __DIR__ . '/partials/footer.php';
 }
 
@@ -1285,8 +1641,13 @@ function fitur_pengajuan() {
     $title = 'Pengajuan Kebutuhan Bahan (PLP ke Kepala Lab)'; $active = 'pengajuan'; $d = db();
     $disetujuiPlp = array_filter($d['pengajuan_dosen'], fn($r) => $r['status'] === 'disetujui');
     require __DIR__ . '/partials/header.php';
+    render_wf_steps('Alur persetujuan pengadaan bahan', [
+        'Pengajuan Dosen (2 Smt)',
+        'Disetujui PLP & Set Stok Min',
+        'Ditinjau & Disetujui Kalab',
+        'Permintaan Pembelian',
+    ], 2, 'PLP menyusun pengajuan kebutuhan bahan berdasarkan pengajuan dosen yang telah disetujui beserta stok minimum.');
     ?>
-    <p class="sum">PLP menyusun pengajuan kebutuhan bahan berdasarkan pengajuan yang telah disetujui PLP (lengkap dengan detail ukuran per mahasiswa per pcs & penetapan stok minimum barang) untuk di-<em>approve</em> oleh <strong>Kepala Lab</strong>.</p>
     <form class="box form" method="post">
         <?= field_csrf() ?>
         <label for="pengajuan_dosen_id">Ambil Data dari Pengajuan Dosen yang Sudah Disetujui PLP</label>
@@ -1450,9 +1811,32 @@ function fitur_approval_kalab() {
 
     $title = 'Approval Pengajuan Kebutuhan Bahan (Kepala Lab)'; $active = 'approval_kalab'; $d = db();
     $dariPlpBelumTarik = array_filter($d['pengajuan_dosen'], fn($r) => $r['status'] === 'disetujui' && empty($r['diajukan_ke_kalab']));
+    $menungguKalab = count(array_filter($d['pengajuan'], fn($r) => $r['status'] === 'menunggu'));
+    $lowCountKalab = count(array_filter($d['barang'], 'low'));
     require __DIR__ . '/partials/header.php';
     ?>
-    <p class="sum">Kepala Lab tidak perlu menginput pengajuan secara manual. Data diambil otomatis dari pengajuan yang telah disetujui/diajukan oleh PLP untuk di-<em>approve</em> oleh Kepala Lab.</p>
+    <div class="cards cards-3">
+        <div>
+            <span>Pengajuan menunggu tinjauan</span>
+            <strong><?= str_pad((string)$menungguKalab, 2, '0', STR_PAD_LEFT) ?></strong>
+        </div>
+        <div>
+            <span>Siap ditarik dari PLP</span>
+            <strong><?= str_pad((string)count($dariPlpBelumTarik), 2, '0', STR_PAD_LEFT) ?></strong>
+        </div>
+        <div>
+            <span>Bahan di bawah minimum</span>
+            <strong><?= str_pad((string)$lowCountKalab, 2, '0', STR_PAD_LEFT) ?></strong>
+        </div>
+    </div>
+    <?php
+    render_wf_steps('Alur persetujuan pengadaan', [
+        'Pengajuan Dosen (2 Smt)',
+        'Verifikasi PLP',
+        'Ditinjau & Disetujui Kalab',
+        'Diteruskan ke Pembelian',
+    ], 3, 'Kepala Lab tidak perlu menginput pengajuan manual. Data diambil otomatis dari pengajuan yang telah disetujui/diajukan oleh PLP.');
+    ?>
 
     <h2>1. Pengajuan dari PLP yang Menunggu Approval Kepala Lab</h2>
     <?php req_table(array_reverse($d['pengajuan']), 'pengajuan', true, 'Approval Kepala Lab'); ?>
@@ -1605,11 +1989,35 @@ function fitur_pengajuan_dosen() {
         save($d);
         go($redirect, "Pengajuan bahan praktikum {$b['nama']} ($jml {$b['satuan']} / $jmlPcs pcs) berhasil dikirim untuk ditinjau PLP.");
     }
-    $title = 'Pengajuan Bahan Praktikum (2 Semester)'; $active = 'pengajuan_dosen'; $d = db();
+    $title = 'Halo, ' . $_SESSION['user']['nama']; $active = 'pengajuan_dosen'; $d = db();
     $milik = array_reverse(array_filter($d['pengajuan_dosen'], fn($r) => $r['oleh_email'] === $_SESSION['user']['email']));
+    $cSetuju = count(array_filter($milik, fn($r) => $r['status'] === 'disetujui'));
+    $cTunggu = count(array_filter($milik, fn($r) => $r['status'] === 'menunggu'));
+    $cKalab  = count(array_filter($milik, fn($r) => !empty($r['diajukan_ke_kalab'])));
     require __DIR__ . '/partials/header.php';
     ?>
-    <p class="sum">Ajukan bahan yang dibutuhkan untuk praktikum dalam 2 semester (bisa memilih bahan yang tersedia atau menambahkan bahan baru sesuai kebutuhan praktikum).</p>
+    <div class="cards cards-3">
+        <div>
+            <span>Disetujui PLP (2 Semester)</span>
+            <strong><?= str_pad((string)$cSetuju, 2, '0', STR_PAD_LEFT) ?></strong>
+        </div>
+        <div>
+            <span>Menunggu persetujuan PLP</span>
+            <strong><?= str_pad((string)$cTunggu, 2, '0', STR_PAD_LEFT) ?></strong>
+        </div>
+        <div>
+            <span>Diteruskan ke Kepala Lab</span>
+            <strong><?= str_pad((string)$cKalab, 2, '0', STR_PAD_LEFT) ?></strong>
+        </div>
+    </div>
+    <?php
+    render_wf_steps('Alur pengajuan bahan praktikum (2 Semester)', [
+        'Ajukan bahan 2 semester',
+        'Diverifikasi PLP & set stok min',
+        'Disetujui Kepala Lab',
+        'Bahan siap dipakai praktikum',
+    ], $cKalab > 0 ? 3 : ($cSetuju > 0 ? 2 : 1), 'Dosen dapat memilih bahan yang tersedia atau menambahkan bahan baru sesuai kebutuhan praktikum 2 semester.');
+    ?>
     <form class="box form" method="post">
         <?= field_csrf() ?>
         <label for="kode">Nama Bahan Praktikum</label>
@@ -1794,7 +2202,7 @@ function fitur_konfirmasi_mhs() {
         save($d);
         go($redirect, "Konfirmasi praktikum & pengajuan pengambilan ($ketAmbil) berhasil dikirim pada tanggal $tglOtomatis.");
     }
-    $title = 'Konfirmasi Praktikum & Pengambilan Bahan'; $active = 'permintaan'; $d = db();
+    $title = 'Halo, ' . $_SESSION['user']['nama']; $active = 'permintaan'; $d = db();
     $jadwalDosen = array_filter($d['pengajuan_dosen'], fn($r) => $r['status'] === 'disetujui');
     if (!$jadwalDosen) $jadwalDosen = $d['pengajuan_dosen'];
     $milik = array_reverse(array_filter($d['permintaan'], fn($r) => $r['oleh_email'] === $_SESSION['user']['email'] || norm_role($_SESSION['user']['role']) === 'mhs'));
@@ -1806,12 +2214,33 @@ function fitur_konfirmasi_mhs() {
             $_SESSION['user']['nim'] = $userNim;
         }
     }
+    $mhsDisetujui = count(array_filter($milik, fn($r) => $r['status'] === 'disetujui'));
+    $mhsMenunggu  = count(array_filter($milik, fn($r) => $r['status'] === 'menunggu'));
+    $mhsSisa      = count(array_filter($milik, fn($r) => ($r['sisa_ambil'] ?? 0) > 0 && $r['status'] === 'disetujui'));
     require __DIR__ . '/partials/header.php';
     ?>
-    <p class="sum">
-        Identitas Mahasiswa: <strong><?= e($_SESSION['user']['nama']) ?> (<?= !empty($userNim) ? 'NIM: ' . e($userNim) . ' | ' : '' ?><?= e($_SESSION['user']['email']) ?>)</strong> —
-        Tanggal Konfirmasi Tercatat Otomatis: <strong><?= date('Y-m-d') ?></strong>.
-    </p>
+    <div class="cards cards-3">
+        <div>
+            <span>Pengambilan disetujui</span>
+            <strong><?= str_pad((string)$mhsDisetujui, 2, '0', STR_PAD_LEFT) ?></strong>
+        </div>
+        <div>
+            <span>Menunggu persetujuan</span>
+            <strong><?= str_pad((string)$mhsMenunggu, 2, '0', STR_PAD_LEFT) ?></strong>
+        </div>
+        <div>
+            <span>Masih ada sisa jatah</span>
+            <strong><?= str_pad((string)$mhsSisa, 2, '0', STR_PAD_LEFT) ?></strong>
+        </div>
+    </div>
+    <?php
+    render_wf_steps('Cara konfirmasi & pengambilan bahan praktikum', [
+        'Pilih praktikum dosen',
+        'Isi jumlah bahan diambil',
+        'Diverifikasi PLP / Teknisi',
+        'Ambil bahan / sisa jatah',
+    ], $mhsDisetujui > 0 ? 3 : ($mhsMenunggu > 0 ? 2 : 1), 'NIM (' . ($userNim ?: '-') . ') dan tanggal hari ini (' . date('Y-m-d') . ') tercatat otomatis dari akun Anda.');
+    ?>
     <form class="box form" method="post">
         <?= field_csrf() ?>
         <input type="hidden" id="kelas" name="kelas" value="">
