@@ -1,16 +1,7 @@
 <?php
 require 'config.php';
-guard_role('kalab');
-
+// Sesuai Notulensi: Akun Kalab digabung ke dalam entitas Dosen dengan atribut jabatan='kalab'
+guard_role('dosen');
 $fitur = $_GET['fitur'] ?? 'approval_kalab';
-switch ($fitur) {
-    case 'semua_pengajuan':
-        fitur_semua_pengajuan();
-        break;
-    case 'peringatan':
-        fitur_peringatan();
-        break;
-    default:
-        fitur_approval_kalab();
-        break;
-}
+header('Location: dosen.php?fitur=' . urlencode($fitur));
+exit;

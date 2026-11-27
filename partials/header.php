@@ -1,17 +1,17 @@
 <?php
 $u = $_SESSION['user'];
 $roleKey = norm_role($u['role']);
+$jabKey = current_jabatan();
 $roleFile = ROLE_FILES[$roleKey] ?? 'index.php';
-$menus = ROLE_MENUS[$roleKey] ?? [];
+$menus = get_user_menus();
 $activeKey = str_replace('.php', '', $active ?? '');
 $flash = flash();
 
-$themeInfo = role_theme_meta($roleKey, $activeKey);
-$badges = sidebar_badges($roleKey);
-$menuGroups = role_menu_groups($roleKey, $menus);
+$themeInfo = role_theme_meta($roleKey, $activeKey, $jabKey);
+$badges = sidebar_badges($roleKey, $jabKey);
+$menuGroups = role_menu_groups($roleKey, $menus, $jabKey);
 $labName = $u['lab'] ?? 'Lab Permesinan';
-$roleLabel = ROLES[$u['role']] ?? ucfirst($u['role']);
-$headerCta = page_header_cta($roleKey, $activeKey, $roleFile);
+$headerCta = page_header_cta($roleKey, $activeKey, $roleFile, $jabKey);
 ?>
 <!doctype html>
 <html lang="id">
@@ -22,7 +22,7 @@ $headerCta = page_header_cta($roleKey, $activeKey, $roleFile);
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/style.css">
 </head>
-<body class="app role-<?= e($roleKey) ?>" style="--theme:<?= e($themeInfo['theme']) ?>;--theme-box:<?= e($themeInfo['box']) ?>;--theme-soft:<?= e($themeInfo['soft']) ?>;--theme-border:<?= e($themeInfo['border']) ?>">
+<body class="app role-<?= e($roleKey) ?> jab-<?= e($jabKey) ?>" style="--theme:<?= e($themeInfo['theme']) ?>;--theme-box:<?= e($themeInfo['box']) ?>;--theme-soft:<?= e($themeInfo['soft']) ?>;--theme-border:<?= e($themeInfo['border']) ?>">
 <div class="shell">
     <aside class="sidebar" aria-label="Navigasi utama">
         <div class="sb-brand">Inventaris Lab</div>

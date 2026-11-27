@@ -1,83 +1,96 @@
 <?php
 session_start();
-const APP_NAME = 'Inventaris Barang';
+const APP_NAME = 'Inventaris Bahan Habis Pakai';
 const DB_FILE = __DIR__ . '/storage/db.json'; // penyimpanan sementara (JSON), ganti ke MySQL nanti
 
+// Sesuai Notulensi 27 Nov 2026: Sistem disederhanakan menjadi 5 Role Utama.
+// Kalab & Kajur digabung ke dalam entitas Dosen dengan atribut 'jabatan' (biasa | kalab | kajur).
 const ROLES = [
-    'kalab'     => 'Kepala Lab',
-    'kajur'     => 'Ketua Jurusan',
-    'teknisi'   => 'Teknisi',
-    'plp'       => 'Pranata Laboratorium Pendidikan',
+    'admin'     => 'Administrator',
     'dosen'     => 'Dosen',
+    'plp'       => 'Pranata Laboratorium Pendidikan',
+    'teknisi'   => 'Teknisi',
     'mhs'       => 'Mahasiswa',
     'mahasiswa' => 'Mahasiswa',
+    // Alias kompatibilitas data lama
+    'kalab'     => 'Dosen (Kepala Lab)',
+    'kajur'     => 'Dosen (Ketua Jurusan)',
+];
+
+const JABATAN_DOSEN = [
+    'biasa' => 'Dosen Pengampu',
+    'kalab' => 'Kepala Laboratorium (Kalab)',
+    'kajur' => 'Ketua Jurusan (Kajur)',
+];
+
+const LAB_LIST = [
+    'Lab Permesinan',
+    'Lab Pengelasan & Fabrikasi',
+    'Lab CNC & Otomasi',
+    'Lab Uji Bahan & Metrologi',
 ];
 
 const ROLE_FILES = [
-    'kalab'     => 'kalab.php',
-    'kajur'     => 'kajur.php',
+    'admin'     => 'admin.php',
+    'dosen'     => 'dosen.php',
+    'kalab'     => 'dosen.php',
+    'kajur'     => 'dosen.php',
     'teknisi'   => 'teknisi.php',
     'plp'       => 'plp.php',
-    'dosen'     => 'dosen.php',
     'mhs'       => 'mhs.php',
     'mahasiswa' => 'mhs.php',
 ];
 
-// Menu per role (fitur => label menu)
+// Menu per role (untuk Dosen ditentukan secara dinamis oleh get_user_menus() berdasarkan atribut jabatan)
 const ROLE_MENUS = [
-    'kalab' => [
-        'approval_kalab'  => 'Approval Pengajuan PLP',
-        'semua_pengajuan' => 'Keseluruhan Pengajuan Bahan',
-        'peringatan'      => 'Peringatan Stok',
+    'admin' => [
+        'admin_dashboard' => 'Dashboard Admin',
+        'admin_users'     => 'Pengguna & Mutasi Jabatan',
+        'admin_akademik'  => 'Matkul, Prodi & Semester',
+        'admin_aturan'    => 'Business Rule & Time Frame',
     ],
-    'kajur' => [
-        'dashboard'  => 'Dashboard',
-        'stok'       => 'Stok Barang',
-        'rak'        => 'Rak & Kapasitas',
-        'rekap'      => 'Rekap',
-    ],
-    'teknisi' => [
-        'dashboard'   => 'Dashboard',
-        'stok'        => 'Stok Barang',
-        'rak'         => 'Rak & Kapasitas',
-        'peringatan'  => 'Peringatan Stok',
-        'masuk'       => 'Barang Masuk',
-        'keluar'      => 'Pengeluaran Bahan',
-        'tinjau'      => 'Konfirmasi Praktikum Mhs',
-        'stockopname' => 'Stock Opname',
+    'dosen' => [
+        'pengajuan_dosen' => 'Permintaan & Usulan Kebutuhan Bahan',
     ],
     'plp' => [
         'dashboard'  => 'Dashboard',
-        'stok'       => 'Stok Barang',
-        'rak'        => 'Rak & Kapasitas',
+        'stok'       => 'Stok Bahan Lab',
+        'rak'        => 'Rak & Lokasi Lab',
         'peringatan' => 'Peringatan Stok',
-        'tinjau'     => 'Tinjau Pengajuan Dosen & Mhs',
-        'pengajuan'  => 'Pengajuan Kebutuhan ke Kalab',
+        'tinjau'     => 'Tinjau Permintaan Dosen & Mhs',
+        'pengajuan'  => 'Pengajuan Pengadaan 2 Smt (ke Kalab)',
         'cek_barang' => 'Cek Barang Real-Time',
-        'pembelian'  => 'Permintaan Pembelian',
-        'rekap'      => 'Rekap',
+        'pembelian'  => 'Distribusi Pengadaan ke Lab',
+        'rekap'      => 'Rekap Permintaan & Pengajuan',
     ],
-    'dosen' => [
-        'pengajuan_dosen' => 'Pengajuan Bahan Praktikum',
+    'teknisi' => [
+        'dashboard'   => 'Dashboard',
+        'stok'        => 'Stok Bahan Lab',
+        'rak'         => 'Rak & Lokasi Lab',
+        'peringatan'  => 'Peringatan Stok',
+        'masuk'       => 'Penerimaan Bahan Lab',
+        'keluar'      => 'Pengeluaran Bahan',
+        'tinjau'      => 'Pelayanan Pengambilan Mhs',
+        'stockopname' => 'Stock Opname Fisik',
     ],
     'mhs' => [
-        'permintaan' => 'Konfirmasi & Pengambilan Praktikum',
+        'permintaan' => 'Pengambilan Bahan Praktikum (Individu)',
     ],
 ];
 
 // Pemetaan file fitur langsung (kompatibilitas akses langsung)
 const PAGES = [
-    'dashboard.php'  => ['Dashboard', ['teknisi', 'kajur', 'plp']],
-    'stok.php'       => ['Stok Barang', ['teknisi', 'kajur', 'plp']],
-    'rak.php'        => ['Rak & Kapasitas', ['teknisi', 'kajur', 'plp']],
-    'peringatan.php' => ['Peringatan Stok', ['teknisi', 'kalab', 'plp']],
-    'masuk.php'      => ['Barang Masuk', ['teknisi']],
+    'dashboard.php'  => ['Dashboard', ['teknisi', 'dosen', 'plp', 'admin']],
+    'stok.php'       => ['Stok Bahan Lab', ['teknisi', 'dosen', 'plp', 'admin']],
+    'rak.php'        => ['Rak & Lokasi Lab', ['teknisi', 'dosen', 'plp', 'admin']],
+    'peringatan.php' => ['Peringatan Stok', ['teknisi', 'dosen', 'plp', 'admin']],
+    'masuk.php'      => ['Penerimaan Bahan Lab', ['teknisi']],
     'keluar.php'     => ['Pengeluaran Bahan', ['teknisi']],
-    'pengajuan.php'  => ['Pengajuan Kebutuhan', ['plp', 'kalab', 'dosen']],
-    'tinjau.php'     => ['Tinjau Pengajuan', ['plp', 'teknisi', 'kalab']],
-    'pembelian.php'  => ['Permintaan Pembelian', ['plp']],
-    'rekap.php'      => ['Rekap', ['kajur', 'plp', 'kalab']],
-    'permintaan.php' => ['Konfirmasi & Pengambilan Praktikum', ['mhs', 'mahasiswa']],
+    'pengajuan.php'  => ['Pengajuan Pengadaan 2 Semester', ['plp', 'dosen']],
+    'tinjau.php'     => ['Tinjau Permintaan', ['plp', 'teknisi', 'dosen']],
+    'pembelian.php'  => ['Distribusi Pengadaan', ['plp']],
+    'rekap.php'      => ['Rekap', ['dosen', 'plp', 'admin']],
+    'permintaan.php' => ['Pengambilan Bahan Praktikum', ['mhs', 'mahasiswa']],
 ];
 
 const DEFAULT_RAK_KAPASITAS = [
@@ -89,7 +102,53 @@ const DEFAULT_RAK_KAPASITAS = [
 function e($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
 function norm_role($r) {
-    return $r === 'mahasiswa' ? 'mhs' : $r;
+    if ($r === 'mahasiswa') return 'mhs';
+    if (in_array($r, ['kalab', 'kajur'], true)) return 'dosen';
+    return $r;
+}
+
+function norm_jabatan($userRow) {
+    $rawRole = $userRow['role'] ?? '';
+    $jab = $userRow['jabatan'] ?? '';
+    if (in_array($jab, ['biasa', 'kalab', 'kajur'], true)) return $jab;
+    if ($rawRole === 'kalab') return 'kalab';
+    if ($rawRole === 'kajur') return 'kajur';
+    return norm_role($rawRole) === 'dosen' ? 'biasa' : '';
+}
+
+function current_jabatan() {
+    $u = $_SESSION['user'] ?? [];
+    if (norm_role($u['role'] ?? '') !== 'dosen') return '';
+    return norm_jabatan($u);
+}
+
+function get_user_menus() {
+    $u = $_SESSION['user'] ?? [];
+    $roleKey = norm_role($u['role'] ?? '');
+    if ($roleKey !== 'dosen') {
+        return ROLE_MENUS[$roleKey] ?? [];
+    }
+    $jab = current_jabatan();
+    if ($jab === 'kalab') {
+        return [
+            'approval_kalab'  => 'Approval Pengajuan Pengadaan (Kalab)',
+            'semua_pengajuan' => 'Monitoring Permintaan & Pengajuan',
+            'peringatan'      => 'Peringatan Stok Lab',
+            'pengajuan_dosen' => 'Permintaan & Usulan Bahan (Dosen)',
+        ];
+    }
+    if ($jab === 'kajur') {
+        return [
+            'dashboard'       => 'Dashboard Monitoring (Kajur)',
+            'stok'            => 'Stok Bahan Laboratorium',
+            'rak'             => 'Rak & Lokasi Laboratorium',
+            'rekap'           => 'Rekap Permintaan & Pengajuan',
+            'pengajuan_dosen' => 'Permintaan & Usulan Bahan (Dosen)',
+        ];
+    }
+    return [
+        'pengajuan_dosen' => 'Permintaan & Usulan Kebutuhan Bahan',
+    ];
 }
 
 function seed() {
@@ -231,18 +290,87 @@ function db() {
     if (!is_file(DB_FILE)) seed();
     $d = json_decode(file_get_contents(DB_FILE), true);
     if (!isset($d['rak_kapasitas'])) $d['rak_kapasitas'] = DEFAULT_RAK_KAPASITAS;
-    if (!isset($d['rak_lokasi'])) $d['rak_lokasi'] = []; // [nama rak => ['ruangan'=>..., 'lemari'=>...]]
+    if (!isset($d['rak_lokasi'])) $d['rak_lokasi'] = [
+        'A-01' => ['ruangan' => 'Lab Pengelasan & Fabrikasi', 'lemari' => 'Lemari Plat 1'],
+        'A-02' => ['ruangan' => 'Lab Permesinan', 'lemari' => 'Lemari Bahan Bubut'],
+        'A-03' => ['ruangan' => 'Lab Permesinan', 'lemari' => 'Lemari Logam Non-Ferro'],
+    ];
     if (!isset($d['pengajuan_dosen'])) $d['pengajuan_dosen'] = [];
     if (!isset($d['permintaan'])) $d['permintaan'] = [];
     if (!isset($d['pengajuan'])) $d['pengajuan'] = [];
     if (!isset($d['stockopname'])) $d['stockopname'] = [];
     if (!isset($d['pembelian'])) $d['pembelian'] = [];
     if (!isset($d['log'])) $d['log'] = [];
+
+    // Normalisasi 5 Role Utama & pastikan akun Administrator tersedia
+    $hasAdmin = false;
+    foreach ($d['users'] as &$u) {
+        if (($u['role'] ?? '') === 'admin') $hasAdmin = true;
+        if (in_array($u['role'] ?? '', ['kalab', 'kajur'], true)) {
+            $u['jabatan'] = $u['role'];
+            $u['role'] = 'dosen';
+        } elseif (($u['role'] ?? '') === 'dosen' && empty($u['jabatan'])) {
+            $u['jabatan'] = 'biasa';
+        }
+        if (empty($u['lab'])) {
+            $u['lab'] = in_array($u['jabatan'] ?? '', ['kajur'], true) || ($u['role'] ?? '') === 'admin'
+                ? 'Kantor Jurusan Teknik Mesin'
+                : 'Lab Permesinan';
+        }
+        if (($u['role'] ?? '') === 'dosen' && empty($u['matkul_diampu'])) {
+            $u['matkul_diampu'] = ['MK-01', 'MK-02', 'MK-03'];
+        }
+    }
+    unset($u);
+    if (!$hasAdmin) {
+        array_unshift($d['users'], [
+            'email' => 'admin@polban.ac.id',
+            'nama' => 'Administrator Jurusan',
+            'role' => 'admin',
+            'jabatan' => '',
+            'nip' => '199001012020121001',
+            'lab' => 'Kantor Jurusan Teknik Mesin',
+            'hash' => '$2y$12$elnWViB9rmQp//0GQc.FvujWnl5m0a0GKVUvRXhTmS3/HpoBknKom',
+        ]);
+    }
+
+    // Master Program Studi, Mata Kuliah & Silabus/Jobsheet, serta Business Rule Time Frame
+    if (!isset($d['master_prodi'])) {
+        $d['master_prodi'] = [
+            ['kode' => 'D3-TM', 'nama' => 'D3 Teknik Mesin', 'jenjang' => 'D3'],
+            ['kode' => 'D4-TPPM', 'nama' => 'D4 Teknik Perancangan & Konstruksi Mesin', 'jenjang' => 'D4'],
+            ['kode' => 'D4-PM', 'nama' => 'D4 Proses Manufaktur', 'jenjang' => 'D4'],
+        ];
+    }
+    if (!isset($d['master_matkul'])) {
+        $d['master_matkul'] = [
+            ['kode' => 'MK-01', 'nama' => 'Praktik Pemesinan Bubut', 'prodi' => 'D3 Teknik Mesin', 'semester' => '3 (Ganjil) & 4 (Genap)', 'lab' => 'Lab Permesinan', 'jobsheet' => 'Bubut Bertingkat & Silinder', 'dosen_email' => 'dosen@polban.ac.id', 'bahan_kode' => ['MPK-0012', 'MPK-0018', 'MPK-0028']],
+            ['kode' => 'MK-02', 'nama' => 'Praktik Pengelasan & Fabrikasi', 'prodi' => 'D3 Teknik Mesin', 'semester' => '3 (Ganjil) & 4 (Genap)', 'lab' => 'Lab Pengelasan & Fabrikasi', 'jobsheet' => 'Las SMAW & Sambungan Plat', 'dosen_email' => 'dosen@polban.ac.id', 'bahan_kode' => ['MPK-0018', 'MPK-0021']],
+            ['kode' => 'MK-03', 'nama' => 'Praktik Uji Bahan & Metrologi', 'prodi' => 'D4 Proses Manufaktur', 'semester' => '5 (Ganjil) & 6 (Genap)', 'lab' => 'Lab Uji Bahan & Metrologi', 'jobsheet' => 'Uji Tarik & Uji Keras Spesimen', 'dosen_email' => 'kalab@polban.ac.id', 'bahan_kode' => ['MPK-0012', 'MPK-0021']],
+        ];
+    }
+    if (!isset($d['business_rules'])) {
+        $d['business_rules'] = [
+            'periode_aktif' => true,
+            'bulan_mulai' => 'Maret',
+            'bulan_selesai' => 'Mei',
+            'tahun_ajaran' => '2026/2027 (2 Semester)',
+            'kebijakan_overlimit' => 'Izinkan dengan Pencatatan Jatah Minus & Kompensasi/Denda',
+            'denda_per_satuan' => 5000,
+        ];
+    }
+    if (!isset($d['mutasi_log'])) {
+        $d['mutasi_log'] = [];
+    }
+
     foreach ($d['barang'] as &$b) {
         if (!isset($b['ukuran_pcs']) || $b['ukuran_pcs'] < 1) {
             $b['ukuran_pcs'] = $b['satuan'] === 'cm' ? 100 : 1;
         }
         $b['rak'] = trim((string)($b['rak'] ?? ''));
+        if (empty($b['lab'])) {
+            $b['lab'] = ($b['rak'] === 'A-01') ? 'Lab Pengelasan & Fabrikasi' : 'Lab Permesinan';
+        }
         if ($b['rak'] !== '' && !isset($d['rak_kapasitas'][$b['rak']])) {
             $d['rak_kapasitas'][$b['rak']] = 500;
         }
@@ -262,9 +390,14 @@ function low($i) { return $i['stok'] < $i['minimum']; }
 function stok_pct($i) { return $i['minimum'] > 0 ? min(100, round($i['stok'] / $i['minimum'] * 100)) : 100; }
 function find_idx($list, $key, $val) { foreach ($list as $n => $r) { if (($r[$key] ?? null) == $val) return $n; } return null; }
 function post_int($k) { return filter_var($_POST[$k] ?? '', FILTER_VALIDATE_INT) ?: 0; }
-function kebutuhan($mhs, $per, $tol, $stok) {
-    $total = (int)ceil(round($mhs * $per * (1 + $tol / 100), 6));
-    return [$total, max(0, $total - $stok)];
+// Rumus Pengadaan 2 Semester sesuai Notulensi Bagian 5:
+// Jumlah Pengajuan = ceil( (Total Permintaan - Sisa Stok) + Stok Minimum + Toleransi Gagal Potong )
+function kebutuhan($mhs, $per, $tol, $stok, $min = 0) {
+    $totalPermintaan = $mhs * $per;
+    $gagalPotong = $totalPermintaan * ($tol / 100);
+    $kebutuhanKotor = (int)ceil(round($totalPermintaan + $gagalPotong, 6));
+    $pengajuan = (int)ceil(round(max(0, ($totalPermintaan - $stok) + $min + $gagalPotong), 6));
+    return [$kebutuhanKotor, $pengajuan, (int)$totalPermintaan, (int)ceil(round($gagalPotong, 6))];
 }
 function add_log(&$d, $jenis, $kode, $jumlah, $catatan, $verified = false) {
     $d['log'][] = [
@@ -318,28 +451,36 @@ function rak_info($d, $rak) {
 }
 
 // Guard berdasarkan file fitur atau role
+function sync_session_user() {
+    if (empty($_SESSION['user'])) return;
+    $uList = db()['users'] ?? [];
+    $uIdx = find_idx($uList, 'email', $_SESSION['user']['email'] ?? '');
+    if ($uIdx !== null) {
+        $_SESSION['user']['role'] = norm_role($uList[$uIdx]['role']);
+        $_SESSION['user']['jabatan'] = norm_jabatan($uList[$uIdx]);
+        $_SESSION['user']['nim'] = $uList[$uIdx]['nim'] ?? ($_SESSION['user']['nim'] ?? '');
+        $_SESSION['user']['nama'] = $uList[$uIdx]['nama'] ?? $_SESSION['user']['nama'];
+    }
+}
+
 function guard($file) {
     if (empty($_SESSION['user'])) { header('Location: login.php'); exit; }
-    if (empty($_SESSION['user']['nim'])) {
-        $uList = db()['users'] ?? [];
-        $uIdx = find_idx($uList, 'email', $_SESSION['user']['email'] ?? '');
-        if ($uIdx !== null) $_SESSION['user']['nim'] = $uList[$uIdx]['nim'] ?? '';
-    }
+    sync_session_user();
     $role = norm_role($_SESSION['user']['role']);
     $allowed = array_map('norm_role', PAGES[$file][1] ?? []);
     if (!in_array($role, $allowed, true)) {
         http_response_code(403);
         exit('403 - Anda tidak berwenang membuka halaman ini.');
     }
+    // Batasi visibilitas stok untuk Dosen Biasa sesuai Notulensi Bagian 3
+    if ($role === 'dosen' && current_jabatan() === 'biasa' && in_array($file, ['stok.php', 'rak.php', 'peringatan.php', 'dashboard.php'], true)) {
+        go('dosen.php', 'Visibilitas stok dibatasi: Dosen biasa tidak diperlihatkan informasi jumlah ketersediaan stok bahan di laboratorium.', 'warn');
+    }
 }
 
 function guard_role($expectedRole) {
     if (empty($_SESSION['user'])) { header('Location: login.php'); exit; }
-    if (empty($_SESSION['user']['nim'])) {
-        $uList = db()['users'] ?? [];
-        $uIdx = find_idx($uList, 'email', $_SESSION['user']['email'] ?? '');
-        if ($uIdx !== null) $_SESSION['user']['nim'] = $uList[$uIdx]['nim'] ?? '';
-    }
+    sync_session_user();
     $userRole = norm_role($_SESSION['user']['role']);
     $expected = norm_role($expectedRole);
     if ($userRole !== $expected) {
@@ -380,86 +521,114 @@ function chip($s) {
     return '<span class="chip ' . $c . '">' . e($label) . '</span>';
 }
 
-// Konfigurasi warna sidebar, grup menu, badge tugas, dan tombol aksi utama per role sesuai Wireframe v4
-function role_theme_meta($roleKey, $activeKey = '') {
+// Konfigurasi warna sidebar, grup menu, badge tugas, dan tombol aksi utama per role sesuai Wireframe v4 & 5 Role Notulensi
+function role_theme_meta($roleKey, $activeKey = '', $jabKey = '') {
+    if ($roleKey === 'dosen') {
+        if ($jabKey === 'kalab') {
+            return [
+                'theme' => '#4E2A7F',
+                'box' => '#5E3891',
+                'soft' => '#EFEAF6',
+                'border' => '#DCD0EC',
+                'role_short' => 'Dosen · Jabatan: Kalab',
+                'modul' => 'Modul: Approval Pengajuan & Permintaan',
+            ];
+        }
+        if ($jabKey === 'kajur') {
+            return [
+                'theme' => '#2D3A4A',
+                'box' => '#3B4A5C',
+                'soft' => '#EBEEF2',
+                'border' => '#D5DCE4',
+                'role_short' => 'Dosen · Jabatan: Kajur',
+                'modul' => 'Modul: Monitoring Jurusan',
+            ];
+        }
+        return [
+            'theme' => '#1A44A7',
+            'box' => '#2753BA',
+            'soft' => '#EBF0FA',
+            'border' => '#D0DCF5',
+            'role_short' => 'Dosen Pengampu',
+            'modul' => 'Modul: Permintaan & Usulan 2 Semester',
+        ];
+    }
+
     $themes = [
+        'admin' => [
+            'theme' => '#165B33',
+            'box' => '#226B40',
+            'soft' => '#E9F3EC',
+            'border' => '#D2E5D8',
+            'role_short' => 'Administrator',
+            'modul' => 'Modul: Master Data & Business Rule',
+        ],
         'teknisi' => [
             'theme' => '#165B33',
             'box' => '#226B40',
             'soft' => '#E9F3EC',
             'border' => '#D2E5D8',
-            'role_short' => 'Teknisi',
-            'modul' => in_array($activeKey, ['masuk', 'keluar', 'tinjau'], true) ? 'Modul: Transaksi Bahan' : 'Modul: Bahan Habis Pakai',
+            'role_short' => 'Teknisi Lab',
+            'modul' => in_array($activeKey, ['masuk', 'keluar', 'tinjau'], true) ? 'Modul: Logistik & Pelayanan Lab' : 'Modul: Bahan Habis Pakai',
         ],
         'plp' => [
             'theme' => '#0F5C5C',
             'box' => '#1B6B6B',
             'soft' => '#E6F2F2',
             'border' => '#CCE3E3',
-            'role_short' => 'PLP / Teknisi',
-            'modul' => in_array($activeKey, ['cek_barang'], true) ? 'Modul: Verifikasi & Opname' : (in_array($activeKey, ['pengajuan', 'pembelian'], true) ? 'Modul: Pengadaan Bahan' : 'Modul: Pemakaian & Pengajuan'),
-        ],
-        'dosen' => [
-            'theme' => '#1A44A7',
-            'box' => '#2753BA',
-            'soft' => '#EBF0FA',
-            'border' => '#D0DCF5',
-            'role_short' => 'Dosen Pengampu',
-            'modul' => 'Modul: Pengajuan 2 Semester',
+            'role_short' => 'PLP Laboratorium',
+            'modul' => in_array($activeKey, ['cek_barang'], true) ? 'Modul: Verifikasi & Opname' : (in_array($activeKey, ['pengajuan', 'pembelian'], true) ? 'Modul: Pengajuan Pengadaan 2 Smt' : 'Modul: Permintaan & Stok Lab'),
         ],
         'mhs' => [
             'theme' => '#1A44A7',
             'box' => '#2753BA',
             'soft' => '#EBF0FA',
             'border' => '#D0DCF5',
-            'role_short' => 'Mahasiswa',
-            'modul' => 'Modul: Pengambilan Praktikum',
-        ],
-        'kalab' => [
-            'theme' => '#4E2A7F',
-            'box' => '#5E3891',
-            'soft' => '#EFEAF6',
-            'border' => '#DCD0EC',
-            'role_short' => 'Kalab',
-            'modul' => 'Modul: Bahan Inventaris',
-        ],
-        'kajur' => [
-            'theme' => '#2D3A4A',
-            'box' => '#3B4A5C',
-            'soft' => '#EBEEF2',
-            'border' => '#D5DCE4',
-            'role_short' => 'Kajur',
-            'modul' => 'Modul: Monitoring Bahan',
+            'role_short' => 'Mahasiswa (Individu)',
+            'modul' => 'Modul: Pengambilan Praktikum Individu',
         ],
     ];
     return $themes[$roleKey] ?? $themes['teknisi'];
 }
 
-function role_menu_groups($roleKey, $flatMenus) {
-    $groups = [
-        'teknisi' => [
-            'BAHAN INVENTARIS' => ['dashboard', 'stok', 'rak', 'peringatan'],
-            'TRANSAKSI & OPNAME' => ['masuk', 'keluar', 'tinjau', 'stockopname'],
-        ],
-        'plp' => [
-            'PENGAJUAN & PENGADAAN' => ['dashboard', 'tinjau', 'pengajuan', 'pembelian', 'rekap'],
-            'VERIFIKASI & OPNAME' => ['cek_barang'],
-            'LIHAT BAHAN' => ['stok', 'rak', 'peringatan'],
-        ],
-        'kalab' => [
-            'KALAB' => ['approval_kalab', 'semua_pengajuan', 'peringatan'],
-        ],
-        'kajur' => [
-            'KAJUR' => ['dashboard', 'stok', 'rak', 'rekap'],
-        ],
-        'dosen' => [
-            'PENGAJU (DOSEN)' => ['pengajuan_dosen'],
-        ],
-        'mhs' => [
-            'PRAKTIKAN (MAHASISWA)' => ['permintaan'],
-        ],
-    ];
-    $map = $groups[$roleKey] ?? ['MENU UTAMA' => array_keys($flatMenus)];
+function role_menu_groups($roleKey, $flatMenus, $jabKey = '') {
+    if ($roleKey === 'dosen') {
+        if ($jabKey === 'kalab') {
+            $map = [
+                'JABATAN: KEPALA LAB' => ['approval_kalab', 'semua_pengajuan', 'peringatan'],
+                'PERAN DOSEN PENGAMPU' => ['pengajuan_dosen'],
+            ];
+        } elseif ($jabKey === 'kajur') {
+            $map = [
+                'JABATAN: KETUA JURUSAN' => ['dashboard', 'stok', 'rak', 'rekap'],
+                'PERAN DOSEN PENGAMPU' => ['pengajuan_dosen'],
+            ];
+        } else {
+            $map = [
+                'DOSEN PENGAMPU' => ['pengajuan_dosen'],
+            ];
+        }
+    } else {
+        $groups = [
+            'admin' => [
+                'MASTER DATA & AKUN' => ['admin_dashboard', 'admin_users', 'admin_akademik'],
+                'PENGATURAN SISTEM' => ['admin_aturan'],
+            ],
+            'teknisi' => [
+                'INVENTARIS LAB' => ['dashboard', 'stok', 'rak', 'peringatan'],
+                'LOGISTIK & PELAYANAN' => ['masuk', 'keluar', 'tinjau', 'stockopname'],
+            ],
+            'plp' => [
+                'PERMINTAAN & PENGAJUAN' => ['dashboard', 'tinjau', 'pengajuan', 'pembelian', 'rekap'],
+                'VERIFIKASI & OPNAME' => ['cek_barang'],
+                'STOK LABORATORIUM' => ['stok', 'rak', 'peringatan'],
+            ],
+            'mhs' => [
+                'AKUN INDIVIDU MAHASISWA' => ['permintaan'],
+            ],
+        ];
+        $map = $groups[$roleKey] ?? ['MENU UTAMA' => array_keys($flatMenus)];
+    }
     $result = [];
     foreach ($map as $gName => $keys) {
         foreach ($keys as $k) {
@@ -471,7 +640,7 @@ function role_menu_groups($roleKey, $flatMenus) {
     return $result ?: ['MENU UTAMA' => $flatMenus];
 }
 
-function sidebar_badges($roleKey) {
+function sidebar_badges($roleKey, $jabKey = '') {
     $d = db();
     $lowCount = count(array_filter($d['barang'], 'low'));
     $waitDosen = count(array_filter($d['pengajuan_dosen'], fn($r) => ($r['status'] ?? '') === 'menunggu'));
@@ -492,16 +661,18 @@ function sidebar_badges($roleKey) {
     ];
 }
 
-function page_header_cta($roleKey, $activeKey, $roleFile) {
-    if ($roleKey === 'teknisi') {
-        if (in_array($activeKey, ['dashboard', 'stok'], true)) return ['label' => '+ Barang Masuk', 'url' => "$roleFile?fitur=masuk"];
+function page_header_cta($roleKey, $activeKey, $roleFile, $jabKey = '') {
+    if ($roleKey === 'admin') {
+        if ($activeKey === 'admin_dashboard') return ['label' => 'Mutasi Jabatan Dosen', 'url' => "admin.php?fitur=admin_users"];
+    } elseif ($roleKey === 'teknisi') {
+        if (in_array($activeKey, ['dashboard', 'stok'], true)) return ['label' => '+ Penerimaan Bahan Lab', 'url' => "$roleFile?fitur=masuk"];
         if ($activeKey === 'rak') return ['label' => '+ Atur Kapasitas Rak', 'url' => "$roleFile?fitur=rak#nama_rak"];
     } elseif ($roleKey === 'plp') {
-        if ($activeKey === 'dashboard') return ['label' => '+ Pengajuan ke Kalab', 'url' => "$roleFile?fitur=pengajuan"];
-        if ($activeKey === 'tinjau') return ['label' => '+ Teruskan ke Kalab', 'url' => "$roleFile?fitur=pengajuan"];
-    } elseif ($roleKey === 'kalab') {
-        if ($activeKey === 'semua_pengajuan') return ['label' => 'Tinjau Approval PLP', 'url' => "$roleFile?fitur=approval_kalab"];
-    } elseif ($roleKey === 'kajur') {
+        if ($activeKey === 'dashboard') return ['label' => '+ Buat Pengajuan 2 Smt', 'url' => "$roleFile?fitur=pengajuan"];
+        if ($activeKey === 'tinjau') return ['label' => '+ Susun Pengajuan ke Kalab', 'url' => "$roleFile?fitur=pengajuan"];
+    } elseif ($roleKey === 'dosen' && $jabKey === 'kalab') {
+        if ($activeKey === 'semua_pengajuan') return ['label' => 'Approval Pengajuan PLP', 'url' => "$roleFile?fitur=approval_kalab"];
+    } elseif ($roleKey === 'dosen' && $jabKey === 'kajur') {
         if ($activeKey === 'dashboard') return ['label' => 'Lihat Rekap Lengkap', 'url' => "$roleFile?fitur=rekap"];
     }
     return null;
@@ -522,8 +693,8 @@ function render_wf_steps($title, $steps, $activeStep = 1, $note = '') {
 }
 
 function req_table($rows, $tipe = '', $aksi = false, $approverLabel = 'Tinjau') {
-    if (!$rows) { echo '<p class="empty">Belum ada data pengajuan.</p>'; return; }
-    echo '<div class="tablewrap"><table><tr><th>No</th><th>Tanggal</th><th>Pengaju</th><th>Barang</th><th>Ukuran / Mhs & Pcs</th><th>Total Kebutuhan</th><th>Perlu Dipesan</th><th>Stok Min</th><th>Keterangan</th><th>Status</th>' . ($aksi ? '<th>' . e($approverLabel) . '</th>' : '') . '</tr>';
+    if (!$rows) { echo '<p class="empty">Belum ada data pengajuan pengadaan 2 semester.</p>'; return; }
+    echo '<div class="tablewrap"><table><tr><th>No</th><th>Tanggal</th><th>Penyusun</th><th>Bahan &amp; Lab</th><th>Ukuran / Mhs &amp; Pcs</th><th>Total Permintaan</th><th>Jumlah Pengajuan (Ke Pusat)</th><th>Stok Min</th><th>Rincian Kalkulasi</th><th>Status</th>' . ($aksi ? '<th>' . e($approverLabel) . '</th>' : '') . '</tr>';
     foreach ($rows as $r) {
         $extra = '';
         if (!empty($r['disetujui_oleh'])) {
@@ -537,7 +708,8 @@ function req_table($rows, $tipe = '', $aksi = false, $approverLabel = 'Tinjau') 
             : '-';
         $pesanTxt = isset($r['pesan']) ? e($r['pesan'] . ' ' . $r['satuan']) : '-';
         $minTxt = isset($r['minimum_baru']) ? e($r['minimum_baru'] . ' ' . $r['satuan']) : '-';
-        echo '<tr><td>' . e($r['id']) . '</td><td>' . e($r['tanggal']) . '</td><td>' . e($r['oleh']) . '</td><td>' . e($r['nama']) . ' (' . e($r['kode']) . ')</td><td>' . $ukMhs . '</td><td>' . e($r['jumlah'] . ' ' . $r['satuan']) . '</td><td><strong>' . $pesanTxt . '</strong></td><td>' . $minTxt . '</td><td>' . e($r['ket']) . $extra . '</td><td>' . chip($r['status']) . '</td>';
+        $labBadge = !empty($r['lab']) ? '<br><small class="muted">' . e($r['lab']) . '</small>' : '';
+        echo '<tr><td>' . e($r['id']) . '</td><td>' . e($r['tanggal']) . '</td><td>' . e($r['oleh']) . '</td><td><strong>' . e($r['nama']) . '</strong> (' . e($r['kode']) . ')' . $labBadge . '</td><td>' . $ukMhs . '</td><td>' . e($r['jumlah'] . ' ' . $r['satuan']) . '</td><td><strong>' . $pesanTxt . '</strong></td><td>' . $minTxt . '</td><td>' . e($r['ket']) . $extra . '</td><td>' . chip($r['status']) . '</td>';
         if ($aksi) {
             echo '<td>';
             if ($r['status'] === 'menunggu') {
@@ -551,14 +723,19 @@ function req_table($rows, $tipe = '', $aksi = false, $approverLabel = 'Tinjau') 
 }
 
 function dosen_table($rows, $aksi = false) {
-    if (!$rows) { echo '<p class="empty">Belum ada pengajuan bahan semester dari dosen.</p>'; return; }
-    echo '<div class="tablewrap"><table><tr><th>No</th><th>Tanggal</th><th>Dosen</th><th>Nama Bahan</th><th>Ukuran/Mhs & Pcs</th><th>Total (2 Smt)</th><th>Kelas</th><th>Sub Praktikum</th><th>Status</th>' . ($aksi ? '<th>Tinjau & Set Stok Min (PLP)</th>' : '') . '</tr>';
+    if (!$rows) { echo '<p class="empty">Belum ada data permintaan penggunaan atau usulan kebutuhan bahan dari dosen.</p>'; return; }
+    echo '<div class="tablewrap"><table><tr><th>No</th><th>Tanggal</th><th>Dosen</th><th>Jenis &amp; Lab Tujuan</th><th>Nama Bahan</th><th>Ukuran/Mhs &amp; Pcs</th><th>Total Kebutuhan</th><th>Kelas / Keperluan</th><th>Matkul / Kegiatan</th><th>Status</th>' . ($aksi ? '<th>Tinjau &amp; Set Stok Min (PLP)</th>' : '') . '</tr>';
     foreach ($rows as $r) {
         $cat = ($r['catatan'] ?? '') !== '' ? '<br><small class="muted">Catatan: ' . e($r['catatan']) . '</small>' : '';
+        $jenisTrans = ($r['jenis_transaksi'] ?? 'usulan_2smt') === 'permintaan_pakai'
+            ? '<span class="chip ok">Permintaan Pakai</span>'
+            : '<span class="chip warn">Usulan 2 Smt</span>';
+        $katPakai = !empty($r['kategori_penggunaan']) ? '<br><small class="muted">' . e(ucfirst($r['kategori_penggunaan'])) . '</small>' : '';
+        $labTxt = !empty($r['lab']) ? '<br><small class="muted">' . e($r['lab']) . '</small>' : '';
         $ukInfo = isset($r['ukuran_per_mhs']) && $r['ukuran_per_mhs'] > 0
-            ? e($r['ukuran_per_mhs'] . ' ' . $r['satuan'] . ' × ' . ($r['jml_mhs'] ?? 1) . ' mhs') . '<br><small class="muted">1 pcs = ' . e(($r['ukuran_pcs'] ?? 1) . ' ' . $r['satuan']) . ' (≈ ' . e($r['jml_pcs'] ?? 1) . ' pcs)</small>'
+            ? e($r['ukuran_per_mhs'] . ' ' . $r['satuan'] . ' × ' . ($r['jml_mhs'] ?? 1) . ' org') . '<br><small class="muted">1 pcs = ' . e(($r['ukuran_pcs'] ?? 1) . ' ' . $r['satuan']) . ' (≈ ' . e($r['jml_pcs'] ?? 1) . ' pcs)</small>'
             : '-';
-        echo '<tr><td>' . e($r['id']) . '</td><td>' . e($r['tanggal']) . '</td><td>' . e($r['oleh']) . '</td><td>' . e($r['nama']) . ' (' . e($r['kode']) . ')</td><td>' . $ukInfo . '</td><td>' . e($r['jumlah'] . ' ' . $r['satuan']) . '</td><td>' . e($r['kelas'] ?? '-') . '</td><td>' . e($r['sub_praktikum'] ?? '-') . $cat . '</td><td>' . chip($r['status']) . '</td>';
+        echo '<tr><td>' . e($r['id']) . '</td><td>' . e($r['tanggal']) . '</td><td>' . e($r['oleh']) . '</td><td>' . $jenisTrans . $katPakai . $labTxt . '</td><td><strong>' . e($r['nama']) . '</strong> (' . e($r['kode']) . ')</td><td>' . $ukInfo . '</td><td><strong>' . e($r['jumlah'] . ' ' . $r['satuan']) . '</strong></td><td>' . e($r['kelas'] ?? '-') . '</td><td>' . e($r['sub_praktikum'] ?? '-') . $cat . '</td><td>' . chip($r['status']) . '</td>';
         if ($aksi) {
             echo '<td>';
             if ($r['status'] === 'menunggu') {
@@ -579,7 +756,7 @@ function dosen_table($rows, $aksi = false) {
 }
 
 function mhs_table($rows, $aksi = false, $allowAmbilSisa = false, $bulk = false) {
-    if (!$rows) { echo '<p class="empty">Belum ada konfirmasi praktikum & pengambilan bahan dari mahasiswa.</p>'; return; }
+    if (!$rows) { echo '<p class="empty">Belum ada permintaan pengambilan bahan praktikum individu dari mahasiswa.</p>'; return; }
 
     $isMhsView = ($allowAmbilSisa || norm_role($_SESSION['user']['role'] ?? '') === 'mhs');
 
@@ -594,9 +771,9 @@ function mhs_table($rows, $aksi = false, $allowAmbilSisa = false, $bulk = false)
 
     echo '<div class="tablewrap"><table><tr>'
         . ($bulk ? '<th class="chk"><input type="checkbox" class="cekall" aria-label="Pilih semua"></th>' : '')
-        . '<th>No</th><th>Tgl Otomatis</th><th>NIM</th><th>Mahasiswa</th>'
+        . '<th>No</th><th>Tgl Otomatis</th><th>NIM Individu</th><th>Mahasiswa (Tidak Diwakilkan)</th>'
         . (!$isMhsView ? '<th>Kelas</th><th>Sub Praktikum</th>' : '')
-        . '<th>Bahan Diambil</th><th>Total Jatah</th><th>Jumlah Diambil</th><th>Sisa Jatah</th><th>Status</th>'
+        . '<th>Bahan Diambil</th><th>Total Jatah</th><th>Jumlah Diambil</th><th>Sisa / Jatah Minus &amp; Kompensasi</th><th>Status</th>'
         . ($aksi ? '<th>Tinjau</th>' : '')
         . ($allowAmbilSisa ? '<th>Ambil Sisa</th>' : '')
         . '</tr>';
@@ -610,18 +787,30 @@ function mhs_table($rows, $aksi = false, $allowAmbilSisa = false, $bulk = false)
         }
         $totalJatah = $r['total_jatah'] ?? $r['jumlah'];
         $sisaAmbil = (int)($r['sisa_ambil'] ?? 0);
+        $jatahMinus = (int)($r['jatah_minus'] ?? ($sisaAmbil < 0 ? abs($sisaAmbil) : 0));
+        $kompensasi = trim((string)($r['kompensasi'] ?? ''));
         $nim = !empty($r['nim']) ? $r['nim'] : ($userNimMap[$r['oleh_email'] ?? ''] ?? '-');
         $chkCell = $bulk ? '<td class="chk">' . ($r['status'] === 'menunggu' ? '<input type="checkbox" class="pilih" name="ids[]" value="' . e($r['id']) . '" form="bulk" aria-label="Pilih konfirmasi #' . e($r['id']) . '">' : '') . '</td>' : '';
+
+        if ($jatahMinus > 0) {
+            $sisaHtml = '<span class="chip bad">Minus -' . e($jatahMinus . ' ' . $r['satuan']) . ' (Over-Limit)</span>'
+                . ($kompensasi !== '' ? '<br><small class="muted">Kompensasi/Denda: ' . e($kompensasi) . '</small>' : '');
+        } elseif ($sisaAmbil > 0) {
+            $sisaHtml = '<span class="chip warn">' . e($sisaAmbil . ' ' . $r['satuan']) . '</span>';
+        } else {
+            $sisaHtml = '<span class="chip ok">0 ' . e($r['satuan']) . ' (Tepat Jatah)</span>';
+        }
+
         echo '<tr>' . $chkCell
             . '<td>' . e($r['id']) . '</td>'
             . '<td>' . e($r['tanggal']) . '</td>'
             . '<td><strong>' . e($nim) . '</strong></td>'
-            . '<td>' . e($r['oleh']) . '</td>'
+            . '<td>' . e($r['oleh']) . '<br><small class="muted">Akun Individu</small></td>'
             . (!$isMhsView ? '<td>' . e($r['kelas'] ?? '-') . '</td><td>' . e($r['sub_praktikum'] ?? $r['ket'] ?? '-') . $extra . '</td>' : '')
             . '<td>' . e($r['nama']) . '</td>'
             . '<td>' . e($totalJatah . ' ' . $r['satuan']) . '</td>'
             . '<td><strong>' . e($r['jumlah'] . ' ' . $r['satuan']) . '</strong></td>'
-            . '<td>' . ($sisaAmbil > 0 ? '<span class="chip warn">' . e($sisaAmbil . ' ' . $r['satuan']) . '</span>' : '<span class="chip ok">0 ' . e($r['satuan']) . ' (Lunas)</span>') . '</td>'
+            . '<td>' . $sisaHtml . '</td>'
             . '<td>' . chip($r['status']) . '</td>';
         if ($aksi) {
             echo '<td>';
@@ -702,6 +891,511 @@ function render_rekap_kehadiran_praktikum($permintaan, $allowBulkApprove = false
 /* ==========================================================================
    FUNGSI-FUNGSI FITUR UTAMA (Dipanggil oleh masing-masing file role .php)
    ========================================================================== */
+
+/* ---- ROLE 1: ADMINISTRATOR (Master Data, Mutasi Jabatan, Business Rule & Time Frame) ---- */
+function fitur_admin_dashboard() {
+    $d = db();
+    $title = 'Dashboard Administrator';
+    $active = 'admin_dashboard';
+    $users = $d['users'];
+    $dosenCount = count(array_filter($users, fn($u) => norm_role($u['role']) === 'dosen'));
+    $mhsCount = count(array_filter($users, fn($u) => norm_role($u['role']) === 'mhs'));
+    $br = $d['business_rules'];
+    require __DIR__ . '/partials/header.php';
+    ?>
+    <div class="cards">
+        <div>
+            <span>Total pengguna (5 Role)</span>
+            <strong><?= str_pad((string)count($users), 2, '0', STR_PAD_LEFT) ?></strong>
+        </div>
+        <div>
+            <span>Entitas Dosen (Biasa/Kalab/Kajur)</span>
+            <strong><?= str_pad((string)$dosenCount, 2, '0', STR_PAD_LEFT) ?></strong>
+        </div>
+        <div>
+            <span>Mata kuliah &amp; silabus/jobsheet</span>
+            <strong><?= str_pad((string)count($d['master_matkul']), 2, '0', STR_PAD_LEFT) ?></strong>
+        </div>
+        <div>
+            <span>Time frame usulan 2 semester</span>
+            <strong style="font-size:20px;margin-top:6px"><?= !empty($br['periode_aktif']) ? 'DIBUKA (' . e($br['bulan_mulai'] . '–' . $br['bulan_selesai']) . ')' : 'DITUTUP' ?></strong>
+        </div>
+    </div>
+
+    <div class="grid2">
+        <div class="box">
+            <h3>Pejabat Struktural Dosen Aktif Saat Ini</h3>
+            <p class="muted" style="font-size:13px;margin:0 0 12px">Sesuai Notulensi: Kalab dan Kajur merupakan akun Dosen dengan atribut jabatan dinamis yang dikelola oleh Administrator.</p>
+            <div class="tablewrap">
+                <table>
+                    <tr><th>Nama Dosen</th><th>Email / NIP</th><th>Atribut Jabatan</th><th>Penempatan Lab / Unit</th></tr>
+                    <?php foreach ($users as $u): if (norm_role($u['role']) !== 'dosen') continue; $jb = norm_jabatan($u); ?>
+                    <tr>
+                        <td><strong><?= e($u['nama']) ?></strong></td>
+                        <td><?= e($u['email']) ?></td>
+                        <td><span class="chip <?= $jb === 'kalab' ? 'warn' : ($jb === 'kajur' ? 'ok' : '') ?>"><?= e(JABATAN_DOSEN[$jb] ?? 'Dosen Biasa') ?></span></td>
+                        <td><?= e($u['lab'] ?? 'Lab Permesinan') ?></td>
+                    </tr>
+                    <?php endforeach; ?>
+                </table>
+            </div>
+            <div style="margin-top:12px">
+                <a class="btn" href="admin.php?fitur=admin_users">Kelola Pengguna &amp; Mutasi Jabatan</a>
+            </div>
+        </div>
+
+        <div class="box">
+            <h3>Ringkasan Business Rule &amp; Pemetaan Akademik</h3>
+            <div class="tablewrap">
+                <table>
+                    <tr><th>Aturan Bisnis</th><th>Konfigurasi Aktif</th></tr>
+                    <tr><td><strong>Periode Pengisian Usulan 2 Semester</strong></td><td><?= e($br['bulan_mulai'] . ' – ' . $br['bulan_selesai'] . ' (' . $br['tahun_ajaran'] . ')') ?> <?= !empty($br['periode_aktif']) ? '<span class="chip ok">Terbuka</span>' : '<span class="chip bad">Tertutup</span>' ?></td></tr>
+                    <tr><td><strong>Visibilitas Stok Bahan</strong></td><td>Dibatasi (Dosen Biasa tidak melihat stok; hanya PLP, Teknisi, Admin, Kalab/Kajur)</td></tr>
+                    <tr><td><strong>Pengambilan Mahasiswa</strong></td><td>Wajib Akun Individu (1 mahasiswa, tidak dapat diwakilkan)</td></tr>
+                    <tr><td><strong>Kebijakan Over-Limit Mahasiswa</strong></td><td><?= e($br['kebijakan_overlimit']) ?> (Rp <?= number_format((int)($br['denda_per_satuan'] ?? 5000), 0, ',', '.') ?>/satuan)</td></tr>
+                    <tr><td><strong>Penyimpanan Pengadaan</strong></td><td>Langsung didistribusikan ke masing-masing Laboratorium (tanpa gudang pusat)</td></tr>
+                </table>
+            </div>
+            <div style="margin-top:12px;display:flex;gap:8px">
+                <a class="btn sec" href="admin.php?fitur=admin_akademik">Kelola Matkul &amp; Prodi</a>
+                <a class="btn sec" href="admin.php?fitur=admin_aturan">Ubah Time Frame &amp; Aturan</a>
+            </div>
+        </div>
+    </div>
+    <?php
+    require __DIR__ . '/partials/footer.php';
+}
+
+function fitur_admin_users() {
+    $redirect = 'admin.php?fitur=admin_users';
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        check_csrf();
+        $d = db();
+        $aksi = $_POST['aksi_admin'] ?? '';
+
+        if ($aksi === 'mutasi_jabatan') {
+            $email = trim($_POST['email'] ?? '');
+            $jabBaru = $_POST['jabatan_baru'] ?? 'biasa';
+            $labBaru = trim($_POST['lab_baru'] ?? 'Lab Permesinan');
+            $idx = find_idx($d['users'], 'email', $email);
+            if ($idx === null || !in_array($jabBaru, ['biasa', 'kalab', 'kajur'], true)) {
+                go($redirect, 'Data dosen atau jabatan tidak valid.', 'bad');
+            }
+            $jabLama = norm_jabatan($d['users'][$idx]);
+            // Jika mengangkat Kalab di lab yang sama atau Kajur baru, mutasikan pejabat lama menjadi Dosen Biasa
+            if (in_array($jabBaru, ['kalab', 'kajur'], true)) {
+                foreach ($d['users'] as &$uOther) {
+                    if ($uOther['email'] === $email || norm_role($uOther['role']) !== 'dosen') continue;
+                    if ($jabBaru === 'kajur' && norm_jabatan($uOther) === 'kajur') {
+                        $uOther['jabatan'] = 'biasa';
+                    } elseif ($jabBaru === 'kalab' && norm_jabatan($uOther) === 'kalab' && ($uOther['lab'] ?? '') === $labBaru) {
+                        $uOther['jabatan'] = 'biasa';
+                    }
+                }
+                unset($uOther);
+            }
+            $d['users'][$idx]['role'] = 'dosen';
+            $d['users'][$idx]['jabatan'] = $jabBaru;
+            $d['users'][$idx]['lab'] = $labBaru;
+            $d['mutasi_log'][] = [
+                'waktu' => date('Y-m-d H:i'),
+                'nama' => $d['users'][$idx]['nama'],
+                'email' => $email,
+                'dari' => JABATAN_DOSEN[$jabLama] ?? $jabLama,
+                'ke' => JABATAN_DOSEN[$jabBaru] ?? $jabBaru,
+                'lab' => $labBaru,
+                'oleh' => $_SESSION['user']['nama'],
+            ];
+            save($d);
+            go($redirect, "Mutasi jabatan berhasil: {$d['users'][$idx]['nama']} kini menjabat sebagai " . (JABATAN_DOSEN[$jabBaru] ?? $jabBaru) . " ($labBaru).");
+        } elseif ($aksi === 'tambah_user') {
+            $nama = trim($_POST['nama'] ?? '');
+            $email = strtolower(trim($_POST['email'] ?? ''));
+            $role = $_POST['role'] ?? 'mhs';
+            $jabatan = $role === 'dosen' ? ($_POST['jabatan'] ?? 'biasa') : '';
+            $nimNip = trim($_POST['nim_nip'] ?? '');
+            $lab = trim($_POST['lab'] ?? 'Lab Permesinan');
+            $pass = $_POST['password'] ?? 'password';
+            if ($nama === '' || $email === '' || find_idx($d['users'], 'email', $email) !== null) {
+                go($redirect, 'Nama dan email wajib diisi (email tidak boleh duplikat).', 'bad');
+            }
+            $d['users'][] = [
+                'email' => $email,
+                'nama' => $nama,
+                'role' => norm_role($role),
+                'jabatan' => $jabatan,
+                'nim' => $role === 'mhs' ? $nimNip : '',
+                'nip' => $role !== 'mhs' ? $nimNip : '',
+                'lab' => $lab,
+                'matkul_diampu' => $role === 'dosen' ? ['MK-01'] : [],
+                'hash' => password_hash($pass !== '' ? $pass : 'password', PASSWORD_DEFAULT),
+            ];
+            save($d);
+            go($redirect, "Akun pengguna baru ($nama - $email) berhasil ditambahkan.");
+        }
+    }
+
+    $d = db();
+    $title = 'Kelola Pengguna & Mutasi Jabatan (5 Role Utama)';
+    $active = 'admin_users';
+    require __DIR__ . '/partials/header.php';
+    ?>
+    <div class="grid2">
+        <div class="box form">
+            <h3>Mutasi / Pergantian Jabatan Dosen (Dosen Biasa &harr; Kalab &harr; Kajur)</h3>
+            <p class="muted" style="font-size:12.5px;margin:0 0 12px">Sesuai Notulensi: Akun Kalab dan Kajur digabung ke dalam entitas Dosen. Hak akses berubah dinamis mengikuti jabatan yang ditetapkan di sini.</p>
+            <form method="post">
+                <?= field_csrf() ?>
+                <input type="hidden" name="aksi_admin" value="mutasi_jabatan">
+                <label for="m_email">Pilih Akun Dosen</label>
+                <select id="m_email" name="email" required>
+                    <?php foreach ($d['users'] as $u): if (norm_role($u['role']) !== 'dosen') continue; $jb = norm_jabatan($u); ?>
+                    <option value="<?= e($u['email']) ?>"><?= e($u['nama'] . ' (' . $u['email'] . ') — Saat ini: ' . (JABATAN_DOSEN[$jb] ?? 'Dosen Biasa') . ' [' . ($u['lab'] ?? 'Lab Permesinan') . ']') ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <div class="grid2">
+                    <div>
+                        <label for="m_jabatan">Tetapkan Jabatan Baru</label>
+                        <select id="m_jabatan" name="jabatan_baru" required>
+                            <?php foreach (JABATAN_DOSEN as $k => $lbl): ?>
+                            <option value="<?= e($k) ?>"><?= e($lbl) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="m_lab">Penempatan Laboratorium / Jurusan</label>
+                        <select id="m_lab" name="lab_baru">
+                            <?php foreach (array_merge(LAB_LIST, ['Kantor Jurusan Teknik Mesin']) as $lb): ?>
+                            <option value="<?= e($lb) ?>"><?= e($lb) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+                <button class="btn" type="submit">Simpan Mutasi Jabatan</button>
+            </form>
+        </div>
+
+        <div class="box form">
+            <h3>Tambah Akun Pengguna Baru (5 Role Utama)</h3>
+            <form method="post">
+                <?= field_csrf() ?>
+                <input type="hidden" name="aksi_admin" value="tambah_user">
+                <div class="grid2">
+                    <div><label for="u_nama">Nama Lengkap *</label><input id="u_nama" name="nama" placeholder="Nama lengkap" required></div>
+                    <div><label for="u_email">Email / Username *</label><input id="u_email" name="email" type="email" placeholder="nama@polban.ac.id" required></div>
+                </div>
+                <div class="grid3">
+                    <div>
+                        <label for="u_role">Role Utama *</label>
+                        <select id="u_role" name="role" onchange="document.getElementById('wrap_jab').style.display=this.value==='dosen'?'block':'none'">
+                            <option value="dosen">Dosen</option>
+                            <option value="plp">PLP</option>
+                            <option value="teknisi">Teknisi</option>
+                            <option value="mhs">Mahasiswa (Individu)</option>
+                            <option value="admin">Administrator</option>
+                        </select>
+                    </div>
+                    <div id="wrap_jab">
+                        <label for="u_jab">Jabatan Dosen</label>
+                        <select id="u_jab" name="jabatan">
+                            <?php foreach (JABATAN_DOSEN as $k => $lbl): ?>
+                            <option value="<?= e($k) ?>"><?= e($lbl) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="u_nim">NIM / NIP</label>
+                        <input id="u_nim" name="nim_nip" placeholder="NIM (Mhs) / NIP">
+                    </div>
+                </div>
+                <div class="grid2">
+                    <div>
+                        <label for="u_lab">Penempatan Lab / Unit</label>
+                        <select id="u_lab" name="lab">
+                            <?php foreach (array_merge(LAB_LIST, ['Kantor Jurusan Teknik Mesin']) as $lb): ?>
+                            <option value="<?= e($lb) ?>"><?= e($lb) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="u_pw">Password Awal</label>
+                        <input id="u_pw" name="password" value="password">
+                    </div>
+                </div>
+                <button class="btn" type="submit">+ Tambah Pengguna</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="box">
+        <h3>Daftar Seluruh Pengguna Sistem (5 Role Utama)</h3>
+        <div class="tablewrap">
+            <table>
+                <tr><th>Nama</th><th>Email</th><th>Role Utama</th><th>Atribut Jabatan (Khusus Dosen)</th><th>NIM / NIP</th><th>Penempatan Lab / Unit</th></tr>
+                <?php foreach ($d['users'] as $u):
+                    $rKey = norm_role($u['role']);
+                    $jb = norm_jabatan($u);
+                ?>
+                <tr>
+                    <td><strong><?= e($u['nama']) ?></strong></td>
+                    <td><?= e($u['email']) ?></td>
+                    <td><span class="chip ok"><?= e(ROLES[$rKey] ?? strtoupper($rKey)) ?></span></td>
+                    <td><?= $rKey === 'dosen' ? '<span class="chip ' . ($jb !== 'biasa' ? 'warn' : 'ok') . '">' . e(JABATAN_DOSEN[$jb] ?? 'Dosen Biasa') . '</span>' : '-' ?></td>
+                    <td><?= e(($u['nim'] ?? '') ?: ($u['nip'] ?? '-')) ?></td>
+                    <td><?= e($u['lab'] ?? 'Lab Permesinan') ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </table>
+        </div>
+    </div>
+
+    <?php if (!empty($d['mutasi_log'])): ?>
+    <div class="box">
+        <h3>Riwayat Mutasi Jabatan Dosen</h3>
+        <div class="tablewrap">
+            <table>
+                <tr><th>Waktu</th><th>Dosen</th><th>Jabatan Sebelumnya</th><th>Jabatan Baru</th><th>Laboratorium / Unit</th><th>Diubah Oleh</th></tr>
+                <?php foreach (array_reverse($d['mutasi_log']) as $ml): ?>
+                <tr>
+                    <td><?= e($ml['waktu']) ?></td>
+                    <td><strong><?= e($ml['nama']) ?></strong> (<?= e($ml['email']) ?>)</td>
+                    <td><?= e($ml['dari']) ?></td>
+                    <td><span class="chip ok"><?= e($ml['ke']) ?></span></td>
+                    <td><?= e($ml['lab']) ?></td>
+                    <td><?= e($ml['oleh']) ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </table>
+        </div>
+    </div>
+    <?php endif;
+    require __DIR__ . '/partials/footer.php';
+}
+
+function fitur_admin_akademik() {
+    $redirect = 'admin.php?fitur=admin_akademik';
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        check_csrf();
+        $d = db();
+        $aksi = $_POST['aksi_akad'] ?? '';
+        if ($aksi === 'tambah_matkul') {
+            $kode = strtoupper(trim($_POST['kode'] ?? ''));
+            $nama = trim($_POST['nama'] ?? '');
+            $prodi = trim($_POST['prodi'] ?? '');
+            $smt = trim($_POST['semester'] ?? '3 (Ganjil) & 4 (Genap)');
+            $lab = trim($_POST['lab'] ?? 'Lab Permesinan');
+            $jobsheet = trim($_POST['jobsheet'] ?? '');
+            $dosenEmail = trim($_POST['dosen_email'] ?? 'dosen@polban.ac.id');
+            $bahanKode = array_values(array_filter((array)($_POST['bahan_kode'] ?? [])));
+            if ($kode === '' || $nama === '') go($redirect, 'Kode dan Nama Mata Kuliah wajib diisi.', 'bad');
+            $d['master_matkul'][] = [
+                'kode' => $kode,
+                'nama' => $nama,
+                'prodi' => $prodi,
+                'semester' => $smt,
+                'lab' => $lab,
+                'jobsheet' => $jobsheet,
+                'dosen_email' => $dosenEmail,
+                'bahan_kode' => $bahanKode ?: array_column($d['barang'], 'kode'),
+            ];
+            save($d);
+            go($redirect, "Mata kuliah & silabus/jobsheet $nama ($kode) berhasil ditambahkan.");
+        } elseif ($aksi === 'tambah_prodi') {
+            $kode = strtoupper(trim($_POST['kode_prodi'] ?? ''));
+            $nama = trim($_POST['nama_prodi'] ?? '');
+            $jenjang = trim($_POST['jenjang'] ?? 'D3');
+            if ($kode === '' || $nama === '') go($redirect, 'Kode dan Nama Program Studi wajib diisi.', 'bad');
+            $d['master_prodi'][] = ['kode' => $kode, 'nama' => $nama, 'jenjang' => $jenjang];
+            save($d);
+            go($redirect, "Program Studi $nama berhasil ditambahkan.");
+        }
+    }
+
+    $d = db();
+    $title = 'Master Mata Kuliah, Silabus/Jobsheet, Prodi & Semester';
+    $active = 'admin_akademik';
+    require __DIR__ . '/partials/header.php';
+    ?>
+    <div class="grid2">
+        <div class="box form">
+            <h3>Tambah Mata Kuliah, Pemetaan Semester &amp; Silabus/Jobsheet Lab</h3>
+            <p class="muted" style="font-size:12.5px;margin:0 0 12px">Sesuai Notulensi: Dosen biasa hanya dapat memilih bahan yang digunakan pada mata kuliah/praktikum yang diampunya serta laboratorium tujuan.</p>
+            <form method="post">
+                <?= field_csrf() ?>
+                <input type="hidden" name="aksi_akad" value="tambah_matkul">
+                <div class="grid2">
+                    <div><label for="mk_kode">Kode MK *</label><input id="mk_kode" name="kode" placeholder="MK-04" required></div>
+                    <div><label for="mk_nama">Nama Mata Kuliah / Praktikum *</label><input id="mk_nama" name="nama" placeholder="Praktik CNC Milling" required></div>
+                </div>
+                <div class="grid2">
+                    <div>
+                        <label for="mk_prodi">Program Studi</label>
+                        <select id="mk_prodi" name="prodi">
+                            <?php foreach ($d['master_prodi'] as $pr): ?>
+                            <option value="<?= e($pr['nama']) ?>"><?= e($pr['nama']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="mk_smt">Pemetaan 2 Semester</label>
+                        <input id="mk_smt" name="semester" value="3 (Ganjil) & 4 (Genap)" required>
+                    </div>
+                </div>
+                <div class="grid2">
+                    <div>
+                        <label for="mk_lab">Laboratorium Tujuan</label>
+                        <select id="mk_lab" name="lab">
+                            <?php foreach (LAB_LIST as $lb): ?>
+                            <option value="<?= e($lb) ?>"><?= e($lb) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="mk_dosen">Dosen Pengampu</label>
+                        <select id="mk_dosen" name="dosen_email">
+                            <?php foreach ($d['users'] as $u): if (norm_role($u['role']) !== 'dosen') continue; ?>
+                            <option value="<?= e($u['email']) ?>"><?= e($u['nama'] . ' (' . $u['email'] . ')') ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+                <label for="mk_js">Acuan Silabus / Jobsheet Praktikum</label>
+                <input id="mk_js" name="jobsheet" placeholder="Contoh: Uji Tarik, Uji Keras, Bubut Bertingkat" required>
+
+                <label>Bahan Habis Pakai yang Digunakan pada Mata Kuliah Ini</label>
+                <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+                    <?php foreach ($d['barang'] as $b): ?>
+                    <label style="display:inline-flex;align-items:center;gap:6px;background:#F8FAFC;border:1px solid #CBD5E1;padding:6px 10px;border-radius:8px;cursor:pointer">
+                        <input type="checkbox" name="bahan_kode[]" value="<?= e($b['kode']) ?>" checked style="width:auto;margin:0">
+                        <span><?= e($b['nama'] . ' (' . $b['kode'] . ')') ?></span>
+                    </label>
+                    <?php endforeach; ?>
+                </div>
+                <button class="btn" type="submit">+ Simpan Mata Kuliah &amp; Jobsheet</button>
+            </form>
+        </div>
+
+        <div>
+            <div class="box form">
+                <h3>Tambah Program Studi</h3>
+                <form method="post">
+                    <?= field_csrf() ?>
+                    <input type="hidden" name="aksi_akad" value="tambah_prodi">
+                    <div class="grid3">
+                        <div><label for="pr_kode">Kode</label><input id="pr_kode" name="kode_prodi" placeholder="D4-TRM" required></div>
+                        <div><label for="pr_nama">Nama Program Studi</label><input id="pr_nama" name="nama_prodi" placeholder="D4 Teknologi Rekayasa Mesin" required></div>
+                        <div><label for="pr_jj">Jenjang</label><select id="pr_jj" name="jenjang"><option value="D3">D3</option><option value="D4">D4</option></select></div>
+                    </div>
+                    <button class="btn" type="submit">+ Tambah Program Studi</button>
+                </form>
+            </div>
+
+            <div class="box">
+                <h3>Daftar Program Studi Jurusan Teknik Mesin</h3>
+                <div class="tablewrap">
+                    <table>
+                        <tr><th>Kode</th><th>Program Studi</th><th>Jenjang</th></tr>
+                        <?php foreach ($d['master_prodi'] as $pr): ?>
+                        <tr><td><strong><?= e($pr['kode']) ?></strong></td><td><?= e($pr['nama']) ?></td><td><span class="chip ok"><?= e($pr['jenjang']) ?></span></td></tr>
+                        <?php endforeach; ?>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="box">
+        <h3>Pemetaan Mata Kuliah, Silabus/Jobsheet, Laboratorium &amp; Bahan yang Diampu</h3>
+        <div class="tablewrap">
+            <table>
+                <tr><th>Kode</th><th>Mata Kuliah</th><th>Prodi &amp; Semester</th><th>Laboratorium</th><th>Silabus / Jobsheet</th><th>Dosen Pengampu</th><th>Bahan Terkait</th></tr>
+                <?php foreach ($d['master_matkul'] as $mk): ?>
+                <tr>
+                    <td><strong><?= e($mk['kode']) ?></strong></td>
+                    <td><strong><?= e($mk['nama']) ?></strong></td>
+                    <td><?= e($mk['prodi']) ?><br><small class="muted">Smt: <?= e($mk['semester']) ?></small></td>
+                    <td><span class="chip ok"><?= e($mk['lab']) ?></span></td>
+                    <td><?= e($mk['jobsheet']) ?></td>
+                    <td><?= e($mk['dosen_email']) ?></td>
+                    <td><?= e(implode(', ', $mk['bahan_kode'] ?? [])) ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </table>
+        </div>
+    </div>
+    <?php
+    require __DIR__ . '/partials/footer.php';
+}
+
+function fitur_admin_aturan() {
+    $redirect = 'admin.php?fitur=admin_aturan';
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        check_csrf();
+        $d = db();
+        $d['business_rules'] = [
+            'periode_aktif' => !empty($_POST['periode_aktif']),
+            'bulan_mulai' => trim($_POST['bulan_mulai'] ?? 'Maret'),
+            'bulan_selesai' => trim($_POST['bulan_selesai'] ?? 'Mei'),
+            'tahun_ajaran' => trim($_POST['tahun_ajaran'] ?? '2026/2027 (2 Semester)'),
+            'kebijakan_overlimit' => trim($_POST['kebijakan_overlimit'] ?? 'Izinkan dengan Pencatatan Jatah Minus & Kompensasi/Denda'),
+            'denda_per_satuan' => max(0, post_int('denda_per_satuan')),
+        ];
+        save($d);
+        go($redirect, 'Konfigurasi Business Rule & Time Frame Pengisian Usulan 2 Semester berhasil diperbarui.');
+    }
+
+    $d = db();
+    $br = $d['business_rules'];
+    $title = 'Business Rule & Time Frame Pengadaan 2 Semester';
+    $active = 'admin_aturan';
+    require __DIR__ . '/partials/header.php';
+    ?>
+    <form class="box form" method="post">
+        <?= field_csrf() ?>
+        <h3>Pengaturan Batasan Waktu (Time Frame) &amp; Aturan Bisnis Jurusan Teknik Mesin</h3>
+        <p class="muted" style="font-size:13px;margin:0 0 16px">Sesuai Notulensi: Sistem wajib menerapkan periode waktu pengisian usulan kebutuhan 2 semester oleh dosen sebelum semester berjalan (misal rentang Maret–Mei) serta aturan penanganan kelebihan jatah (over-limit) mahasiswa.</p>
+
+        <div class="grid3">
+            <div>
+                <label for="periode_aktif">Status Periode Usulan Kebutuhan 2 Semester</label>
+                <select id="periode_aktif" name="periode_aktif">
+                    <option value="1"<?= !empty($br['periode_aktif']) ? ' selected' : '' ?>>DIBUKA (Dosen Dapat Menginput Usulan 2 Semester)</option>
+                    <option value="0"<?= empty($br['periode_aktif']) ? ' selected' : '' ?>>DITUTUP (Di Luar Time Frame Pengisian)</option>
+                </select>
+            </div>
+            <div>
+                <label for="bulan_mulai">Bulan Mulai Time Frame</label>
+                <input id="bulan_mulai" name="bulan_mulai" value="<?= e($br['bulan_mulai']) ?>" required>
+            </div>
+            <div>
+                <label for="bulan_selesai">Bulan Selesai Time Frame</label>
+                <input id="bulan_selesai" name="bulan_selesai" value="<?= e($br['bulan_selesai']) ?>" required>
+            </div>
+        </div>
+
+        <div class="grid3">
+            <div>
+                <label for="tahun_ajaran">Tahun Ajaran Pengadaan (2 Semester)</label>
+                <input id="tahun_ajaran" name="tahun_ajaran" value="<?= e($br['tahun_ajaran']) ?>" required>
+            </div>
+            <div>
+                <label for="kebijakan_overlimit">Mekanisme Over-Limit Mahasiswa</label>
+                <select id="kebijakan_overlimit" name="kebijakan_overlimit">
+                    <option value="Izinkan dengan Pencatatan Jatah Minus & Kompensasi/Denda"<?= ($br['kebijakan_overlimit'] ?? '') === 'Izinkan dengan Pencatatan Jatah Minus & Kompensasi/Denda' ? ' selected' : '' ?>>Pencatatan Jatah Minus &amp; Kompensasi/Denda</option>
+                    <option value="Batasi Ketat Sesuai Jatah Maksimum"<?= ($br['kebijakan_overlimit'] ?? '') === 'Batasi Ketat Sesuai Jatah Maksimum' ? ' selected' : '' ?>>Batasi Ketat Sesuai Jatah Maksimum</option>
+                </select>
+            </div>
+            <div>
+                <label for="denda_per_satuan">Tarif Kompensasi / Denda Over-Limit (Rp / satuan)</label>
+                <input id="denda_per_satuan" name="denda_per_satuan" type="number" min="0" value="<?= e($br['denda_per_satuan'] ?? 5000) ?>">
+            </div>
+        </div>
+
+        <button class="btn" type="submit">Simpan Business Rule &amp; Time Frame</button>
+    </form>
+    <?php
+    require __DIR__ . '/partials/footer.php';
+}
 
 function fitur_dashboard() {
     $d = db();
@@ -1722,9 +2416,10 @@ function fitur_cek_barang() {
     require __DIR__ . '/partials/footer.php';
 }
 
-// PLP Point 1, 2 & Kalab Point 1, 3:
-// PLP mengajukan kebutuhan bahan ke Kepala Lab (mengambil data dari pengajuan yang sudah disetujui PLP,
-// menampilkan per pcs berapa ukuran per mahasiswa, dan bisa input stok minimum pada setiap barang yang diajukan)
+// PLP Point 1, 2 & Kalab Point 1, 3 (Revisi Notulensi Bagian 1 & 5):
+// - Standarisasi istilah: "Pengajuan" = dokumen rencana pengadaan/pembelian bahan habis pakai dari lab ke pusat Polban untuk 2 semester.
+// - Rumus: Jumlah Pengajuan = ceil( (Total Permintaan - Sisa Stok) + Stok Minimum + Toleransi Gagal Potong )
+// - Acuan: Silabus/jobsheet laboratorium & rekap masukan kebutuhan dari para dosen.
 function fitur_pengajuan() {
     $redirect = role_url('pengajuan');
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -1733,6 +2428,7 @@ function fitur_pengajuan() {
         $pdId = post_int('pengajuan_dosen_id');
         $n = find_idx($d['barang'], 'kode', $_POST['kode'] ?? '');
         $mk = trim($_POST['mata_kuliah'] ?? '');
+        $labTujuan = trim($_POST['lab_tujuan'] ?? 'Lab Permesinan');
         $mhs = post_int('mahasiswa');
         $per = post_int('per_mhs');
         $ukuranPcs = max(1, post_int('ukuran_pcs'));
@@ -1747,21 +2443,23 @@ function fitur_pengajuan() {
                 if ($mk === '') $mk = $pd['sub_praktikum'] . ' (' . $pd['kelas'] . ')';
                 if ($mhs < 1) $mhs = (int)($pd['jml_mhs'] ?? 1);
                 if ($per < 1) $per = (int)($pd['ukuran_per_mhs'] ?? $pd['jumlah']);
+                if (!empty($pd['lab'])) $labTujuan = $pd['lab'];
                 $d['pengajuan_dosen'][$idxPd]['diajukan_ke_kalab'] = true;
             }
         }
 
         if ($n === null || $mk === '' || $mhs < 1 || $per < 1 || $tol < 0 || $tol > 100 || $minBaru === false || $minBaru < 0) {
-            go($redirect, 'Lengkapi data pengajuan, ukuran per mahasiswa, ukuran per pcs, stok minimum, dan toleransi (0-100%).', 'bad');
+            go($redirect, 'Lengkapi data pengajuan pengadaan 2 semester, ukuran per mahasiswa, ukuran per pcs, stok minimum, dan faktor gagal potong (0-100%).', 'bad');
         }
 
-        // Update stok minimum & ukuran per pcs pada barang yang diajukan oleh PLP
+        // Update stok minimum, ukuran per pcs & lab pada barang yang diajukan oleh PLP
         $d['barang'][$n]['minimum'] = (int)$minBaru;
         $d['barang'][$n]['ukuran_pcs'] = $ukuranPcs;
+        $d['barang'][$n]['lab'] = $labTujuan;
         $b = $d['barang'][$n];
 
-        [$total, $pesan] = kebutuhan($mhs, $per, $tol, $b['stok']);
-        $jmlPcs = (int)ceil($total / $ukuranPcs);
+        [$kebutuhanKotor, $pesan, $totalPermintaan, $gagalPotong] = kebutuhan($mhs, $per, $tol, $b['stok'], (int)$minBaru);
+        $jmlPcs = (int)ceil($totalPermintaan / $ukuranPcs);
         $pesanPcs = (int)ceil($pesan / $ukuranPcs);
 
         $d['pengajuan'][] = [
@@ -1770,41 +2468,42 @@ function fitur_pengajuan() {
             'oleh' => $_SESSION['user']['nama'],
             'oleh_email' => $_SESSION['user']['email'],
             'pengajuan_dosen_id' => $pdId,
+            'lab' => $labTujuan,
             'kode' => $b['kode'],
             'nama' => $b['nama'],
             'satuan' => $b['satuan'],
             'ukuran_pcs' => $ukuranPcs,
             'ukuran_per_mhs' => $per,
             'jml_mhs' => $mhs,
-            'jml_pcs' => $jmlPcs,
+            'jml_pcs' => $pesanPcs,
             'minimum_baru' => (int)$minBaru,
-            'jumlah' => $total,
+            'jumlah' => $totalPermintaan,
             'stok' => $b['stok'],
             'pesan' => $pesan,
-            'ket' => "$mk: $mhs mhs × $per {$b['satuan']} (+tol $tol% = $total {$b['satuan']} / $jmlPcs pcs @{$ukuranPcs} {$b['satuan']}), stok {$b['stok']}, perlu dipesan $pesan {$b['satuan']} ($pesanPcs pcs), stok min: $minBaru {$b['satuan']}",
+            'ket' => "[$labTujuan] $mk: Total Permintaan ($mhs × $per = $totalPermintaan {$b['satuan']}) - Sisa Stok ({$b['stok']} {$b['satuan']}) + Stok Min ($minBaru {$b['satuan']}) + Gagal Potong $tol% ($gagalPotong {$b['satuan']}) = Pengajuan $pesan {$b['satuan']} (dibulatkan ke atas ≈ $pesanPcs pcs @{$ukuranPcs} {$b['satuan']})",
             'status' => 'menunggu',
             'disetujui_oleh' => '',
             'catatan' => '',
         ];
         save($d);
-        go($redirect, "Pengajuan kebutuhan berhasil dikirim oleh PLP ke Kepala Lab. Kebutuhan: $total {$b['satuan']} ($jmlPcs pcs), perlu dipesan: $pesan {$b['satuan']}, stok minimum diatur ke $minBaru {$b['satuan']}.");
+        go($redirect, "Draf Pengajuan Pengadaan 2 Semester berhasil dikirim PLP ke Kalab. Rumus: ($totalPermintaan - {$b['stok']}) + $minBaru + $gagalPotong = $pesan {$b['satuan']} ($pesanPcs pcs).");
     }
 
-    $title = 'Pengajuan Kebutuhan Bahan (PLP ke Kepala Lab)'; $active = 'pengajuan'; $d = db();
+    $title = 'Pengajuan Pengadaan Bahan 2 Semester (PLP ke Kalab)'; $active = 'pengajuan'; $d = db();
     $disetujuiPlp = array_filter($d['pengajuan_dosen'], fn($r) => $r['status'] === 'disetujui');
     require __DIR__ . '/partials/header.php';
-    render_wf_steps('Alur persetujuan pengadaan bahan', [
-        'Pengajuan Dosen (2 Smt)',
-        'Disetujui PLP & Set Stok Min',
-        'Ditinjau & Disetujui Kalab',
-        'Permintaan Pembelian',
-    ], 2, 'PLP menyusun pengajuan kebutuhan bahan berdasarkan pengajuan dosen yang telah disetujui beserta stok minimum.');
+    render_wf_steps('Alur persetujuan pengajuan pengadaan 2 semester', [
+        'Silabus/Jobsheet & Usulan Dosen',
+        'PLP Hitung Rumus Pengadaan',
+        'Disetujui Kalab',
+        'Diajukan ke Pusat & Distribusi ke Lab',
+    ], 2, 'Rumus Notulensi: Jumlah Pengajuan = ceil( (Total Permintaan - Sisa Stok) + Stok Minimum + Toleransi Gagal Potong ).');
     ?>
     <form class="box form" method="post">
         <?= field_csrf() ?>
-        <label for="pengajuan_dosen_id">Ambil Data dari Pengajuan Dosen yang Sudah Disetujui PLP</label>
+        <label for="pengajuan_dosen_id">Acuan Kebutuhan: Ambil dari Usulan Kebutuhan / Permintaan Dosen &amp; Silabus/Jobsheet Lab</label>
         <select id="pengajuan_dosen_id" name="pengajuan_dosen_id">
-            <option value="">-- Pilih Pengajuan Dosen yang Disetujui PLP --</option>
+            <option value="">-- Pilih Usulan / Permintaan Dosen yang Disetujui PLP --</option>
             <?php foreach ($disetujuiPlp as $pd):
                 $idxB = find_idx($d['barang'], 'kode', $pd['kode']);
                 $minSkrg = $idxB !== null ? $d['barang'][$idxB]['minimum'] : 100;
@@ -1813,27 +2512,36 @@ function fitur_pengajuan() {
             <option value="<?= e($pd['id']) ?>"
                 data-kode="<?= e($pd['kode']) ?>"
                 data-mk="<?= e($pd['sub_praktikum'] . ' - ' . $pd['kelas']) ?>"
+                data-lab="<?= e($pd['lab'] ?? 'Lab Permesinan') ?>"
                 data-mhs="<?= e($pd['jml_mhs'] ?? 1) ?>"
                 data-per="<?= e($pd['ukuran_per_mhs'] ?? $pd['jumlah']) ?>"
                 data-pcs="<?= e($ukPcsSkrg) ?>"
                 data-min="<?= e($minSkrg) ?>">
-                #<?= e($pd['id']) ?> - <?= e($pd['sub_praktikum']) ?> (<?= e($pd['kelas']) ?>) — <?= e($pd['nama']) ?>: <?= e(($pd['jml_mhs'] ?? 1) . ' mhs × ' . ($pd['ukuran_per_mhs'] ?? $pd['jumlah']) . ' ' . $pd['satuan']) ?> <?= !empty($pd['diajukan_ke_kalab']) ? '[Sudah Diajukan ke Kalab]' : '' ?>
+                #<?= e($pd['id']) ?> [<?= e($pd['lab'] ?? 'Lab Permesinan') ?>] <?= e($pd['sub_praktikum']) ?> (<?= e($pd['kelas']) ?>) — <?= e($pd['nama']) ?>: <?= e(($pd['jml_mhs'] ?? 1) . ' × ' . ($pd['ukuran_per_mhs'] ?? $pd['jumlah']) . ' ' . $pd['satuan']) ?> <?= !empty($pd['diajukan_ke_kalab']) ? '[Sudah Masuk Draf Pengajuan]' : '' ?>
             </option>
             <?php endforeach; ?>
         </select>
 
-        <div class="grid2">
+        <div class="grid3">
             <div>
-                <label for="mata_kuliah">Praktikum & Kelas</label>
-                <input id="mata_kuliah" name="mata_kuliah" placeholder="Otomatis terisi saat pilih pengajuan di atas" required>
+                <label for="mata_kuliah">Silabus / Jobsheet &amp; Kelas</label>
+                <input id="mata_kuliah" name="mata_kuliah" placeholder="Contoh: Uji Tarik / Bubut Bertingkat - 2B" required>
             </div>
             <div>
-                <label for="kode">Barang</label>
+                <label for="lab_tujuan">Laboratorium Penyimpanan Tujuan</label>
+                <select id="lab_tujuan" name="lab_tujuan">
+                    <?php foreach (LAB_LIST as $lb): ?>
+                    <option value="<?= e($lb) ?>"><?= e($lb) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div>
+                <label for="kode">Bahan Habis Pakai</label>
                 <select id="kode" name="kode" required>
-                    <option value="">Pilih barang</option>
+                    <option value="">Pilih bahan</option>
                     <?php foreach ($d['barang'] as $b): ?>
                     <option value="<?= e($b['kode']) ?>" data-stok="<?= e($b['stok']) ?>" data-satuan="<?= e($b['satuan']) ?>" data-pcs="<?= e($b['ukuran_pcs'] ?? 1) ?>" data-min="<?= e($b['minimum']) ?>">
-                        <?= e($b['nama'] . ' (' . $b['kode'] . ') - Stok: ' . $b['stok'] . ' ' . $b['satuan'] . ', 1 pcs = ' . ($b['ukuran_pcs'] ?? 1) . ' ' . $b['satuan']) ?>
+                        <?= e($b['nama'] . ' (' . $b['kode'] . ') - Sisa Stok: ' . $b['stok'] . ' ' . $b['satuan'] . ', Stok Min: ' . $b['minimum'] . ' ' . $b['satuan']) ?>
                     </option>
                     <?php endforeach; ?>
                 </select>
@@ -1841,35 +2549,34 @@ function fitur_pengajuan() {
         </div>
 
         <div class="grid3">
-            <div><label for="mahasiswa">Jumlah Mahasiswa</label><input id="mahasiswa" name="mahasiswa" type="number" min="1" required></div>
-            <div><label for="per_mhs">Ukuran / Kebutuhan per Mahasiswa</label><input id="per_mhs" name="per_mhs" type="number" min="1" required></div>
-            <div><label for="ukuran_pcs">Ukuran per 1 Pcs / Batang</label><input id="ukuran_pcs" name="ukuran_pcs" type="number" min="1" value="100" required></div>
+            <div><label for="mahasiswa">Jumlah Mahasiswa / Sampel</label><input id="mahasiswa" name="mahasiswa" type="number" min="1" required></div>
+            <div><label for="per_mhs">Kebutuhan per Mahasiswa / Jobsheet</label><input id="per_mhs" name="per_mhs" type="number" min="1" required></div>
+            <div><label for="ukuran_pcs">Ukuran per 1 Satuan Beli (Pcs/Batang)</label><input id="ukuran_pcs" name="ukuran_pcs" type="number" min="1" value="100" required></div>
         </div>
         <div class="grid2">
-            <div><label for="minimum_baru">Stok Minimum Barang yang Diajukan</label><input id="minimum_baru" name="minimum_baru" type="number" min="0" required></div>
-            <div><label for="tol">Toleransi Gagal (%)</label><input id="tol" name="tol" type="number" min="0" max="100" value="10"></div>
+            <div><label for="minimum_baru">Batas Stok Minimum Lab (Dijaga Tetap Tersisa)</label><input id="minimum_baru" name="minimum_baru" type="number" min="0" required></div>
+            <div><label for="tol">Faktor Barang Gagal Potong (%)</label><input id="tol" name="tol" type="number" min="0" max="100" value="0"></div>
         </div>
         <p id="hasil" class="calc" aria-live="polite"></p>
-        <button class="btn" type="submit">Kirim Pengajuan ke Kepala Lab</button>
+        <button class="btn" type="submit">Susun &amp; Kirim Pengajuan Pengadaan ke Kalab</button>
     </form>
 
-    <h2>Daftar Pengajuan PLP ke Kepala Lab</h2>
+    <h2>Daftar Dokumen Pengajuan Pengadaan 2 Semester (PLP &rarr; Kalab &rarr; Pusat Polban)</h2>
     <?php req_table(array_reverse($d['pengajuan'])); ?>
     <script>
     const f = id => document.getElementById(id);
     function hitung() {
-        const o = f('kode').selectedOptions[0], m = +f('mahasiswa').value, p = +f('per_mhs').value, t = +f('tol').value || 0, uPcs = Math.max(1, +f('ukuran_pcs').value || 1);
+        const o = f('kode').selectedOptions[0], m = +f('mahasiswa').value, p = +f('per_mhs').value, t = +f('tol').value || 0, min = +f('minimum_baru').value || 0, uPcs = Math.max(1, +f('ukuran_pcs').value || 1);
         if (!o || !o.value || m < 1 || p < 1) {
-            f('hasil').textContent = 'Pilih pengajuan dosen atau isi barang, jumlah mahasiswa, dan ukuran per mahasiswa untuk melihat perhitungan per pcs.';
+            f('hasil').textContent = 'Pilih usulan dosen atau isi bahan, jumlah mahasiswa, dan ukuran per mahasiswa untuk melihat kalkulasi rumus pengadaan.';
             return;
         }
         const sat = o.dataset.satuan, stok = +o.dataset.stok;
-        const total = Math.ceil(Math.round(m * p * (1 + t / 100) * 1e6) / 1e6);
-        const totalPcs = Math.ceil(total / uPcs);
-        const pesan = Math.max(0, total - stok);
-        const pesanPcs = Math.ceil(pesan / uPcs);
-        const mhsPerPcs = (uPcs / p).toFixed(1);
-        f('hasil').textContent = `Ukuran per mahasiswa: ${p} ${sat} (1 pcs @ ${uPcs} ${sat} cukup untuk ≈ ${mhsPerPcs} mhs). Total kebutuhan ${m} mhs (+tol ${t}%): ${total} ${sat} (${totalPcs} pcs). Stok saat ini: ${stok} ${sat}. Perlu dipesan: ${pesan} ${sat} (${pesanPcs} pcs).`;
+        const totalPermintaan = m * p;
+        const gagalPotong = Math.ceil(Math.round(totalPermintaan * (t / 100) * 1e6) / 1e6);
+        const pengajuan = Math.max(0, Math.ceil(Math.round(((totalPermintaan - stok) + min + (totalPermintaan * (t / 100))) * 1e6) / 1e6));
+        const pengajuanPcs = Math.ceil(pengajuan / uPcs);
+        f('hasil').textContent = `Rumus Pengadaan: (Total Permintaan ${totalPermintaan} ${sat} − Sisa Stok ${stok} ${sat}) + Stok Minimum ${min} ${sat} + Gagal Potong ${t}% (${gagalPotong} ${sat}) = Jumlah Pengajuan: ${pengajuan} ${sat} (Dibulatkan ke atas ≈ ${pengajuanPcs} pcs @ ${uPcs} ${sat}). Setelah ${totalPermintaan} ${sat} terpakai, sisa stok di lab tetap terjaga minimal ${min} ${sat}.`;
     }
     const selPd = f('pengajuan_dosen_id');
     if (selPd) {
@@ -1878,6 +2585,7 @@ function fitur_pengajuan() {
             if (opt && opt.value) {
                 f('kode').value = opt.dataset.kode || '';
                 f('mata_kuliah').value = opt.dataset.mk || '';
+                if (f('lab_tujuan') && opt.dataset.lab) f('lab_tujuan').value = opt.dataset.lab;
                 f('mahasiswa').value = opt.dataset.mhs || '';
                 f('per_mhs').value = opt.dataset.per || '';
                 f('ukuran_pcs').value = opt.dataset.pcs || 100;
@@ -1894,14 +2602,14 @@ function fitur_pengajuan() {
         }
         hitung();
     });
-    ['mahasiswa', 'per_mhs', 'ukuran_pcs', 'tol'].forEach(i => f(i).addEventListener('input', hitung));
+    ['mahasiswa', 'per_mhs', 'ukuran_pcs', 'minimum_baru', 'tol'].forEach(i => f(i).addEventListener('input', hitung));
     hitung();
     </script>
     <?php
     require __DIR__ . '/partials/footer.php';
 }
 
-// Kalab Point 1 & 3: Kepala Lab melakukan approval atas pengajuan dari PLP (tanpa input manual)
+// Kalab Point 1 & 3: Dosen dengan jabatan Kepala Lab melakukan approval atas pengajuan pengadaan 2 semester dari PLP
 function fitur_approval_kalab() {
     $redirect = role_url('approval_kalab');
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -1909,19 +2617,19 @@ function fitur_approval_kalab() {
         $d = db();
         $aksi = $_POST['aksi'] ?? '';
         if ($aksi === 'tarik_plp') {
-            // Mengambil langsung dari pengajuan dosen yang sudah disetujui PLP
             $idxPd = find_idx($d['pengajuan_dosen'], 'id', post_int('pd_id'));
             if ($idxPd === null || $d['pengajuan_dosen'][$idxPd]['status'] !== 'disetujui') {
-                go($redirect, 'Data pengajuan yang disetujui PLP tidak ditemukan.', 'bad');
+                go($redirect, 'Data usulan/permintaan yang disetujui PLP tidak ditemukan.', 'bad');
             }
             $pd = $d['pengajuan_dosen'][$idxPd];
             $idxB = find_idx($d['barang'], 'kode', $pd['kode']);
             $stokSkrg = $idxB !== null ? (int)$d['barang'][$idxB]['stok'] : 0;
             $minSkrg = $idxB !== null ? (int)$d['barang'][$idxB]['minimum'] : 0;
             $ukPcs = (int)($pd['ukuran_pcs'] ?? ($idxB !== null ? $d['barang'][$idxB]['ukuran_pcs'] : 100));
-            $total = (int)$pd['jumlah'];
-            $pesan = max(0, $total - $stokSkrg);
-            $jmlPcs = (int)ceil($total / max(1, $ukPcs));
+            $totalPermintaan = (int)$pd['jumlah'];
+            // Rumus Notulensi: (Total Permintaan - Sisa Stok) + Stok Minimum
+            $pesan = max(0, ($totalPermintaan - $stokSkrg) + $minSkrg);
+            $jmlPcs = (int)ceil($pesan / max(1, $ukPcs));
 
             $d['pengajuan_dosen'][$idxPd]['diajukan_ke_kalab'] = true;
             $d['pengajuan'][] = [
@@ -1930,24 +2638,25 @@ function fitur_approval_kalab() {
                 'oleh' => 'PLP (Disetujui PLP)',
                 'oleh_email' => 'plp@polban.ac.id',
                 'pengajuan_dosen_id' => $pd['id'],
+                'lab' => $pd['lab'] ?? 'Lab Permesinan',
                 'kode' => $pd['kode'],
                 'nama' => $pd['nama'],
                 'satuan' => $pd['satuan'],
                 'ukuran_pcs' => $ukPcs,
-                'ukuran_per_mhs' => $pd['ukuran_per_mhs'] ?? $total,
+                'ukuran_per_mhs' => $pd['ukuran_per_mhs'] ?? $totalPermintaan,
                 'jml_mhs' => $pd['jml_mhs'] ?? 1,
                 'jml_pcs' => $jmlPcs,
                 'minimum_baru' => $minSkrg,
-                'jumlah' => $total,
+                'jumlah' => $totalPermintaan,
                 'stok' => $stokSkrg,
                 'pesan' => $pesan,
-                'ket' => "Diambil dari Pengajuan Disetujui PLP #{$pd['id']} ({$pd['sub_praktikum']} - {$pd['kelas']}), stok $stokSkrg, perlu dipesan $pesan {$pd['satuan']}",
+                'ket' => "Diambil dari Usulan/Permintaan #{$pd['id']} ({$pd['sub_praktikum']} - {$pd['kelas']}): ($totalPermintaan - $stokSkrg) + Stok Min $minSkrg = Pengajuan $pesan {$pd['satuan']} ($jmlPcs pcs)",
                 'status' => 'disetujui',
-                'disetujui_oleh' => $_SESSION['user']['nama'] . ' (Kepala Lab)',
-                'catatan' => 'Disetujui langsung oleh Kepala Lab dari daftar pengajuan PLP',
+                'disetujui_oleh' => $_SESSION['user']['nama'] . ' (Dosen · Jabatan: Kalab)',
+                'catatan' => 'Disetujui langsung oleh Kepala Lab untuk diajukan ke pusat Polban',
             ];
             save($d);
-            go($redirect, "Pengajuan #{$pd['id']} ({$pd['nama']}) berhasil diambil dari persetujuan PLP dan langsung disetujui Kepala Lab.");
+            go($redirect, "Usulan #{$pd['id']} ({$pd['nama']}) berhasil ditarik dan disetujui Kalab dengan rumus pengadaan: ($totalPermintaan - $stokSkrg) + $minSkrg = $pesan {$pd['satuan']}.");
         }
 
         $n = find_idx($d['pengajuan'], 'id', post_int('id'));
@@ -1956,12 +2665,12 @@ function fitur_approval_kalab() {
         }
         $d['pengajuan'][$n]['status'] = $aksi === 'setujui' ? 'disetujui' : 'ditolak';
         $d['pengajuan'][$n]['catatan'] = trim($_POST['catatan'] ?? '');
-        $d['pengajuan'][$n]['disetujui_oleh'] = $_SESSION['user']['nama'] . ' (Kepala Lab)';
+        $d['pengajuan'][$n]['disetujui_oleh'] = $_SESSION['user']['nama'] . ' (Dosen · Jabatan: Kalab)';
         save($d);
-        go($redirect, 'Keputusan Kepala Lab atas pengajuan PLP berhasil disimpan.');
+        go($redirect, 'Keputusan Kepala Lab atas dokumen pengajuan pengadaan 2 semester berhasil disimpan.');
     }
 
-    $title = 'Approval Pengajuan Kebutuhan Bahan (Kepala Lab)'; $active = 'approval_kalab'; $d = db();
+    $title = 'Approval Pengajuan Pengadaan 2 Semester (Jabatan: Kalab)'; $active = 'approval_kalab'; $d = db();
     $dariPlpBelumTarik = array_filter($d['pengajuan_dosen'], fn($r) => $r['status'] === 'disetujui' && empty($r['diajukan_ke_kalab']));
     $menungguKalab = count(array_filter($d['pengajuan'], fn($r) => $r['status'] === 'menunggu'));
     $lowCountKalab = count(array_filter($d['barang'], 'low'));
@@ -1969,42 +2678,42 @@ function fitur_approval_kalab() {
     ?>
     <div class="cards cards-3">
         <div>
-            <span>Pengajuan menunggu tinjauan</span>
+            <span>Pengajuan menunggu approval Kalab</span>
             <strong><?= str_pad((string)$menungguKalab, 2, '0', STR_PAD_LEFT) ?></strong>
         </div>
         <div>
-            <span>Siap ditarik dari PLP</span>
+            <span>Usulan siap ditarik dari PLP</span>
             <strong><?= str_pad((string)count($dariPlpBelumTarik), 2, '0', STR_PAD_LEFT) ?></strong>
         </div>
         <div>
-            <span>Bahan di bawah minimum</span>
+            <span>Bahan lab di bawah minimum</span>
             <strong><?= str_pad((string)$lowCountKalab, 2, '0', STR_PAD_LEFT) ?></strong>
         </div>
     </div>
     <?php
-    render_wf_steps('Alur persetujuan pengadaan', [
-        'Pengajuan Dosen (2 Smt)',
-        'Verifikasi PLP',
-        'Ditinjau & Disetujui Kalab',
-        'Diteruskan ke Pembelian',
-    ], 3, 'Kepala Lab tidak perlu menginput pengajuan manual. Data diambil otomatis dari pengajuan yang telah disetujui/diajukan oleh PLP.');
+    render_wf_steps('Alur persetujuan pengajuan pengadaan 2 semester', [
+        'Usulan Kebutuhan Dosen & Jobsheet',
+        'PLP Susun Draf Pengajuan',
+        'Approval Kalab (Jabatan Dosen)',
+        'Diajukan ke Pusat Polban & Distribusi Lab',
+    ], 3, 'Akun Kalab merupakan entitas Dosen dengan atribut jabatan Kepala Lab. Kalab menyetujui draf pengajuan dari PLP sebelum diajukan ke pusat Polban.');
     ?>
 
-    <h2>1. Pengajuan dari PLP yang Menunggu Approval Kepala Lab</h2>
-    <?php req_table(array_reverse($d['pengajuan']), 'pengajuan', true, 'Approval Kepala Lab'); ?>
+    <h2>1. Draf Pengajuan Pengadaan 2 Semester dari PLP (Menunggu Approval Kalab)</h2>
+    <?php req_table(array_reverse($d['pengajuan']), 'pengajuan', true, 'Approval Kalab'); ?>
 
-    <h2>2. Pengajuan Praktikum yang Sudah Disetujui PLP (Siap Diambil / Di-Approve Kalab)</h2>
+    <h2>2. Usulan / Permintaan Dosen yang Sudah Diverifikasi PLP (Siap Ditarik ke Pengajuan)</h2>
     <?php if (!$dariPlpBelumTarik): ?>
-        <p class="empty">Seluruh pengajuan yang disetujui PLP sudah masuk ke daftar approval Kepala Lab di atas.</p>
+        <p class="empty">Seluruh usulan yang disetujui PLP sudah masuk ke daftar pengajuan Kepala Lab di atas.</p>
     <?php else: ?>
         <div class="tablewrap"><table>
-            <tr><th>No</th><th>Tanggal</th><th>Dosen Pengaju</th><th>Bahan</th><th>Ukuran/Mhs & Pcs</th><th>Total Kebutuhan</th><th>Kelas & Praktikum</th><th>Status PLP</th><th>Aksi Kepala Lab</th></tr>
+            <tr><th>No</th><th>Tanggal</th><th>Dosen</th><th>Bahan &amp; Lab</th><th>Ukuran/Mhs &amp; Pcs</th><th>Total Permintaan</th><th>Kelas &amp; Kegiatan</th><th>Status PLP</th><th>Aksi Kalab</th></tr>
             <?php foreach (array_reverse($dariPlpBelumTarik) as $pd): ?>
             <tr>
                 <td>#<?= e($pd['id']) ?></td>
                 <td><?= e($pd['tanggal']) ?></td>
                 <td><?= e($pd['oleh']) ?></td>
-                <td><?= e($pd['nama'] . ' (' . $pd['kode'] . ')') ?></td>
+                <td><?= e($pd['nama'] . ' (' . $pd['kode'] . ')') ?><br><small class="muted"><?= e($pd['lab'] ?? 'Lab Permesinan') ?></small></td>
                 <td><?= e(($pd['ukuran_per_mhs'] ?? '-') . ' ' . $pd['satuan'] . '/mhs (' . ($pd['jml_pcs'] ?? 1) . ' pcs)') ?></td>
                 <td><strong><?= e($pd['jumlah'] . ' ' . $pd['satuan']) ?></strong></td>
                 <td><?= e($pd['kelas'] . ' - ' . $pd['sub_praktikum']) ?></td>
@@ -2014,7 +2723,7 @@ function fitur_approval_kalab() {
                         <?= field_csrf() ?>
                         <input type="hidden" name="aksi" value="tarik_plp">
                         <input type="hidden" name="pd_id" value="<?= e($pd['id']) ?>">
-                        <button class="btn" type="submit">Ambil & Setujui (Kalab)</button>
+                        <button class="btn" type="submit">Tarik &amp; Setujui (Kalab)</button>
                     </form>
                 </td>
             </tr>
@@ -2063,16 +2772,31 @@ function fitur_semua_pengajuan() {
     require __DIR__ . '/partials/footer.php';
 }
 
-// Dosen Point 1 & PLP Point 1:
-// Dosen mengajukan bahan praktikum 2 semester + bisa menambahkan bahan baru sesuai kebutuhan praktikum
-// + mencantumkan ukuran per mahasiswa dan ukuran per pcs
+// Dosen (Revisi Notulensi Bagian 3):
+// - Visibilitas Stok Dibatasi: Dosen biasa TIDAK diperlihatkan informasi jumlah ketersediaan stok bahan di laboratorium.
+// - Pemisahan Dua Jenis Transaksi:
+//   1. Permintaan Penggunaan Bahan (untuk pelaksanaan praktikum atau keperluan lain seperti Penelitian).
+//   2. Usulan Kebutuhan Bahan sebagai bahan pertimbangan pengadaan 2 semester (dibatasi Time Frame misal Maret–Mei).
+// - Ruang Lingkup Pemilihan Bahan & Lab: Dosen biasa hanya memilih bahan pada mata kuliah/praktikum yang diampunya serta lab tujuan.
+// - Usulan Bahan Baru: Dosen dapat menambahkan data kebutuhan bahan baru yang belum tersedia di master.
 function fitur_pengajuan_dosen() {
     $redirect = role_url('pengajuan_dosen');
+    $d = db();
+    $jab = current_jabatan();
+    $isPejabat = in_array($jab, ['kalab', 'kajur'], true);
+    $br = $d['business_rules'];
+    $periodeAktif = !empty($br['periode_aktif']);
+
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         check_csrf();
-        $d = db();
+        $jenisTransaksi = $_POST['jenis_transaksi'] ?? 'permintaan_pakai';
+        $kategoriPakai = $_POST['kategori_penggunaan'] ?? 'praktikum';
+        $labTujuan = trim($_POST['lab_tujuan'] ?? 'Lab Permesinan');
 
-        // Mode 1: Submit banyak bahan sekaligus dari Katalog Kotak-Kotak + Form Pengajuan
+        if ($jenisTransaksi === 'usulan_2smt' && !$periodeAktif) {
+            go($redirect, "Periode pengisian Usulan Kebutuhan Bahan 2 Semester sedang DITUTUP (Time Frame: {$br['bulan_mulai']}–{$br['bulan_selesai']}). Silakan pilih 'Permintaan Penggunaan Bahan' atau hubungi Administrator.", 'bad');
+        }
+
         if (!empty($_POST['items_json'])) {
             $items = json_decode((string)$_POST['items_json'], true);
             $jmlMhs = max(1, post_int('jml_mhs'));
@@ -2081,7 +2805,7 @@ function fitur_pengajuan_dosen() {
             $namaPengaju = trim($_POST['nama_pengaju'] ?? $_SESSION['user']['nama']);
 
             if (!is_array($items) || !$items || $kelas === '' || $sub === '') {
-                go($redirect, 'Pilih minimal satu bahan dari katalog, lalu lengkapi Kelas, Jumlah Mahasiswa, dan Mata Kuliah / Sub Praktikum.', 'bad');
+                go($redirect, 'Pilih minimal satu bahan dari katalog, lalu lengkapi Kelas/Unit, Jumlah Mahasiswa/Sampel, dan Mata Kuliah/Judul Penelitian.', 'bad');
             }
 
             $addedCount = 0;
@@ -2105,6 +2829,7 @@ function fitur_pengajuan_dosen() {
                         'satuan' => $satuanBaru,
                         'ukuran_pcs' => $ukPcsBaru,
                         'rak' => '',
+                        'lab' => $labTujuan,
                         'minimum' => $jml,
                         'stok' => 0,
                         'foto' => '',
@@ -2120,11 +2845,15 @@ function fitur_pengajuan_dosen() {
                 $jmlPcs = (int)ceil($jml / $ukPcs);
                 $pesan = max(0, $jml - $b['stok']);
 
+                $labelJenis = $jenisTransaksi === 'permintaan_pakai' ? 'Permintaan Penggunaan' : 'Usulan Kebutuhan 2 Smt';
                 $d['pengajuan_dosen'][] = [
                     'id' => count($d['pengajuan_dosen']) + 1,
                     'tanggal' => date('Y-m-d'),
                     'oleh' => $namaPengaju !== '' ? $namaPengaju : $_SESSION['user']['nama'],
                     'oleh_email' => $_SESSION['user']['email'],
+                    'jenis_transaksi' => $jenisTransaksi,
+                    'kategori_penggunaan' => $kategoriPakai,
+                    'lab' => $labTujuan,
                     'kode' => $b['kode'],
                     'nama' => $b['nama'],
                     'satuan' => $b['satuan'],
@@ -2137,7 +2866,7 @@ function fitur_pengajuan_dosen() {
                     'pesan' => $pesan,
                     'kelas' => $kelas,
                     'sub_praktikum' => $sub,
-                    'ket' => "Kelas: $kelas | Sub: $sub | $jmlMhs mhs × $ukPerMhs {$b['satuan']} (1 pcs = $ukPcs {$b['satuan']}, butuh $jmlPcs pcs)",
+                    'ket' => "[$labelJenis - " . ucfirst($kategoriPakai) . " | $labTujuan] Kelas/Unit: $kelas | Kegiatan: $sub | $jmlMhs × $ukPerMhs {$b['satuan']} = $jml {$b['satuan']} (≈ $jmlPcs pcs)",
                     'status' => 'menunggu',
                     'diajukan_ke_kalab' => false,
                     'catatan' => '',
@@ -2147,107 +2876,91 @@ function fitur_pengajuan_dosen() {
             }
 
             if ($addedCount < 1) {
-                go($redirect, 'Tidak ada bahan valid yang diajukan. Pastikan jumlah/ukuran per mahasiswa lebih dari 0.', 'bad');
+                go($redirect, 'Tidak ada bahan valid yang dipilih. Pastikan jumlah/ukuran per mahasiswa lebih dari 0.', 'bad');
             }
             save($d);
-            go($redirect, "Pengajuan $addedCount jenis bahan praktikum 2 semester (" . implode(', ', $addedNames) . ") berhasil dikirim untuk ditinjau PLP.");
+            $judulNotif = $jenisTransaksi === 'permintaan_pakai' ? 'Permintaan penggunaan bahan' : 'Usulan kebutuhan bahan 2 semester';
+            go($redirect, "$judulNotif untuk $addedCount jenis bahan (" . implode(', ', $addedNames) . ") di $labTujuan berhasil dikirim untuk ditinjau PLP.");
         }
-
-        // Fallback Mode 2: Submit form tunggal
-        $pilihanKode = $_POST['kode'] ?? '';
-        $ukPerMhs = post_int('ukuran_per_mhs');
-        $jmlMhs = post_int('jml_mhs');
-        $jml = post_int('jumlah');
-        if ($jml < 1 && $ukPerMhs > 0 && $jmlMhs > 0) {
-            $jml = $ukPerMhs * $jmlMhs;
-        }
-        $kelas = trim($_POST['kelas'] ?? '');
-        $sub = trim($_POST['sub_praktikum'] ?? '');
-
-        if ($pilihanKode === '__BARU__') {
-            $namaBaru = trim($_POST['nama_baru'] ?? '');
-            $spekBaru = trim($_POST['spesifikasi_baru'] ?? '');
-            $satuanBaru = trim($_POST['satuan_baru'] ?? 'cm');
-            $ukPcsBaru = max(1, post_int('ukuran_pcs_baru'));
-            if ($namaBaru === '' || $spekBaru === '' || $satuanBaru === '') {
-                go($redirect, 'Lengkapi nama bahan baru, spesifikasi/ukuran, dan satuan untuk penambahan bahan baru.', 'bad');
-            }
-            $kodeBaru = 'MPK-' . str_pad((string)(count($d['barang']) + 25), 4, '0', STR_PAD_LEFT);
-            $d['barang'][] = [
-                'kode' => $kodeBaru,
-                'nama' => $namaBaru,
-                'spesifikasi' => $spekBaru,
-                'satuan' => $satuanBaru,
-                'ukuran_pcs' => $ukPcsBaru,
-                'rak' => '',
-                'minimum' => $jml,
-                'stok' => 0,
-                'foto' => '',
-            ];
-            $n = count($d['barang']) - 1;
-        } else {
-            $n = find_idx($d['barang'], 'kode', $pilihanKode);
-        }
-
-        if ($n === null || $jml < 1 || $ukPerMhs < 1 || $jmlMhs < 1 || $kelas === '' || $sub === '') {
-            go($redirect, 'Pilih/tambah bahan, isi ukuran per mahasiswa, jumlah mahasiswa, kelas, dan nama/sub praktikum.', 'bad');
-        }
-
-        $b = $d['barang'][$n];
-        $ukPcs = max(1, (int)($b['ukuran_pcs'] ?? 1));
-        $jmlPcs = (int)ceil($jml / $ukPcs);
-        $pesan = max(0, $jml - $b['stok']);
-
-        $d['pengajuan_dosen'][] = [
-            'id' => count($d['pengajuan_dosen']) + 1,
-            'tanggal' => date('Y-m-d'),
-            'oleh' => $_SESSION['user']['nama'],
-            'oleh_email' => $_SESSION['user']['email'],
-            'kode' => $b['kode'],
-            'nama' => $b['nama'],
-            'satuan' => $b['satuan'],
-            'ukuran_pcs' => $ukPcs,
-            'ukuran_per_mhs' => $ukPerMhs,
-            'jml_mhs' => $jmlMhs,
-            'jumlah' => $jml,
-            'jml_pcs' => $jmlPcs,
-            'stok' => $b['stok'],
-            'pesan' => $pesan,
-            'kelas' => $kelas,
-            'sub_praktikum' => $sub,
-            'ket' => "Kelas: $kelas | Sub: $sub | $jmlMhs mhs × $ukPerMhs {$b['satuan']} (1 pcs = $ukPcs {$b['satuan']}, butuh $jmlPcs pcs)",
-            'status' => 'menunggu',
-            'diajukan_ke_kalab' => false,
-            'catatan' => '',
-        ];
-        save($d);
-        go($redirect, "Pengajuan bahan praktikum {$b['nama']} ($jml {$b['satuan']} / $jmlPcs pcs) berhasil dikirim untuk ditinjau PLP.");
     }
 
-    $title = 'Pengajuan Bahan Praktikum (2 Semester)';
+    $title = 'Permintaan Penggunaan & Usulan Kebutuhan Bahan (Dosen)';
     $active = 'pengajuan_dosen';
-    $d = db();
     $milik = array_reverse(array_filter($d['pengajuan_dosen'], fn($r) => $r['oleh_email'] === $_SESSION['user']['email']));
+
+    // Filter mata kuliah yang diampu oleh dosen ini (Dosen Biasa hanya melihat matkul yang diampunya)
+    $emailDosen = $_SESSION['user']['email'] ?? '';
+    $matkulDosen = array_values(array_filter($d['master_matkul'], fn($mk) => $isPejabat || ($mk['dosen_email'] ?? '') === $emailDosen));
+    if (!$matkulDosen) $matkulDosen = $d['master_matkul'];
 
     require __DIR__ . '/partials/header.php';
     ?>
 
+    <div class="box" style="margin-bottom:18px;background:var(--theme-soft);border-color:var(--theme-border)">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+            <div>
+                <strong>Time Frame Usulan Kebutuhan Pengadaan 2 Semester: <?= e($br['bulan_mulai'] . ' – ' . $br['bulan_selesai'] . ' (' . $br['tahun_ajaran'] . ')') ?></strong>
+                <div class="muted" style="font-size:12.5px;margin-top:2px">
+                    Status Periode Usulan 2 Semester: <?= $periodeAktif ? '<span class="chip ok">DIBUKA</span>' : '<span class="chip bad">DITUTUP</span>' ?> &middot;
+                    <?= $isPejabat ? 'Anda memiliki jabatan <strong>' . e(JABATAN_DOSEN[$jab] ?? '') . '</strong> (dapat mengakses seluruh bahan & lab).' : 'Sebagai <strong>Dosen Pengampu</strong>, informasi jumlah stok bahan laboratorium disembunyikan dan pilihan bahan mengikuti mata kuliah/laboratorium yang diampu.' ?>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- ======================================================================
-         TAHAP 1: KATALOG KOTAK-KOTAK BAHAN INDIVIDUAL + RINGKASAN PILIHAN
+         TAHAP 1: FILTER MATKUL/LAB & KATALOG KOTAK-KOTAK BAHAN + RINGKASAN
          ====================================================================== -->
     <div id="dsn_step_catalog">
+        <div class="box form" style="margin-bottom:18px">
+            <h3 style="margin:0 0 10px">Pilih Jenis Transaksi, Mata Kuliah yang Diampu &amp; Laboratorium Tujuan</h3>
+            <div class="grid3">
+                <div>
+                    <label for="sel_jenis_transaksi">1. Jenis Transaksi Dosen *</label>
+                    <select id="sel_jenis_transaksi" onchange="syncFilterKatalogDosen()">
+                        <option value="permintaan_pakai">Permintaan Penggunaan Bahan (Praktikum / Penelitian)</option>
+                        <option value="usulan_2smt"<?= !$periodeAktif ? ' disabled' : '' ?>>Usulan Kebutuhan Bahan (Pertimbangan Pengadaan 2 Semester)<?= !$periodeAktif ? ' [DITUTUP]' : '' ?></option>
+                    </select>
+                </div>
+                <div>
+                    <label for="sel_kategori_pakai">2. Keperluan Penggunaan *</label>
+                    <select id="sel_kategori_pakai" onchange="syncFilterKatalogDosen()">
+                        <option value="praktikum">Praktikum Rutin Mahasiswa (Sesuai Matkul Diampu)</option>
+                        <option value="penelitian">Penelitian / Tugas Akhir / Non-Praktikum</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="sel_matkul_ampu">3. Mata Kuliah &amp; Laboratorium Tujuan *</label>
+                    <select id="sel_matkul_ampu" onchange="syncFilterKatalogDosen()">
+                        <?php foreach ($matkulDosen as $mk): ?>
+                        <option value="<?= e($mk['kode']) ?>"
+                                data-nama="<?= e($mk['nama']) ?>"
+                                data-prodi="<?= e($mk['prodi']) ?>"
+                                data-lab="<?= e($mk['lab']) ?>"
+                                data-jobsheet="<?= e($mk['jobsheet']) ?>"
+                                data-bahan="<?= e(implode(',', $mk['bahan_kode'] ?? [])) ?>">
+                            <?= e($mk['nama'] . ' (' . $mk['prodi'] . ') — ' . $mk['lab']) ?>
+                        </option>
+                        <?php endforeach; ?>
+                        <?php if ($isPejabat): ?>
+                        <option value="__ALL__" data-nama="" data-prodi="" data-lab="Lab Permesinan" data-jobsheet="" data-bahan="">-- Semua Mata Kuliah &amp; Laboratorium (Akses Kalab/Kajur) --</option>
+                        <?php endif; ?>
+                    </select>
+                </div>
+            </div>
+        </div>
+
         <div class="dsn-catalog-layout">
             <div>
-                <input type="search" id="dsn_search" class="dsn-search-input" placeholder="Cari nama bahan, kode, atau spesifikasi ...">
+                <input type="search" id="dsn_search" class="dsn-search-input" placeholder="Cari nama bahan, kode, atau spesifikasi pada mata kuliah yang diampu ...">
 
                 <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">
-                    <h3 class="dsn-sec-title" style="margin:0">Bahan Habis Pakai Individual (Kebutuhan per Mahasiswa)</h3>
-                    <button type="button" class="btn sec" style="padding:7px 14px;font-size:12.5px" onclick="bukaModalBahanBaru()">+ Tambah Bahan Baru</button>
+                    <h3 class="dsn-sec-title" style="margin:0">Katalog Bahan Habis Pakai (Kebutuhan per Mahasiswa / Sampel)</h3>
+                    <button type="button" class="btn sec" style="padding:7px 14px;font-size:12.5px" onclick="bukaModalBahanBaru()">+ Usulkan Bahan Baru</button>
                 </div>
 
                 <div class="dsn-grid" id="dsn_bahan_grid">
                     <?php foreach ($d['barang'] as $b):
-                        $isLow = low($b);
                         $ukPcs = max(1, (int)($b['ukuran_pcs'] ?? 1));
                         $stepVal = $b['satuan'] === 'cm' ? 5 : 1;
                     ?>
@@ -2256,8 +2969,14 @@ function fitur_pengajuan_dosen() {
                             <h4><?= e($b['nama']) ?></h4>
                             <p class="dsn-card-spec"><?= e($b['kode']) ?> &middot; <?= e($b['spesifikasi']) ?></p>
                             <div class="dsn-card-stock">
-                                <span>Tersedia <?= e($b['stok'] . ' ' . $b['satuan']) ?></span>
-                                <span class="chip <?= $isLow ? 'warn' : 'ok' ?>"><?= $isLow ? 'Stok Terbatas' : 'Tersedia' ?></span>
+                                <?php if ($isPejabat): ?>
+                                    <span>Stok Lab: <?= e($b['stok'] . ' ' . $b['satuan']) ?></span>
+                                    <span class="chip <?= low($b) ? 'warn' : 'ok' ?>"><?= e($b['lab'] ?? 'Lab Permesinan') ?></span>
+                                <?php else: ?>
+                                    <!-- Visibilitas stok disembunyikan untuk Dosen Biasa sesuai Notulensi Bagian 3 -->
+                                    <span class="chip ok">Katalog Master Bahan</span>
+                                    <span class="muted" style="font-size:11.5px">1 pcs = <?= e($ukPcs . ' ' . $b['satuan']) ?></span>
+                                <?php endif; ?>
                             </div>
                         </div>
                         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px">
@@ -2266,17 +2985,17 @@ function fitur_pengajuan_dosen() {
                                 <input type="number" min="0" value="0" class="dsn-qty-input" id="qty_<?= e($b['kode']) ?>" oninput="setQtyManual('<?= e($b['kode']) ?>', this.value)" aria-label="Ukuran per mahasiswa <?= e($b['nama']) ?>">
                                 <button type="button" class="dsn-qty-btn" onclick="ubahQty('<?= e($b['kode']) ?>', <?= $stepVal ?>)" aria-label="Tambah">+</button>
                             </div>
-                            <small class="muted" style="font-size:11.5px;font-weight:600"><?= e($b['satuan']) ?> / mhs</small>
+                            <small class="muted" style="font-size:11.5px;font-weight:600"><?= e($b['satuan']) ?> / org</small>
                         </div>
                     </article>
                     <?php endforeach; ?>
 
-                    <!-- Kotak Tambah Bahan Baru Sesuai Kebutuhan Praktikum -->
-                    <article class="dsn-card dsn-card-new" data-search="tambah bahan baru custom">
+                    <!-- Kotak Tambah Usulan Bahan Baru -->
+                    <article class="dsn-card dsn-card-new" data-kode="__NEW__" data-search="tambah usulan bahan baru custom penelitian praktikum">
                         <div>
-                            <h4>+ Bahan Baru Praktikum</h4>
-                            <p class="dsn-card-spec">Belum ada di daftar katalog? Tambahkan bahan baru beserta spesifikasi &amp; ukuran per pcs.</p>
-                            <p class="dsn-card-highlight">Otomatis masuk ke master bahan</p>
+                            <h4>+ Usulan Bahan Baru</h4>
+                            <p class="dsn-card-spec">Bahan belum tersedia di daftar master? Tambahkan data kebutuhan bahan baru beserta spesifikasinya.</p>
+                            <p class="dsn-card-highlight">Otomatis diajukan ke PLP</p>
                         </div>
                         <div class="dsn-card-actions">
                             <button type="button" class="btn" onclick="bukaModalBahanBaru()">+ Tambah Bahan Baru</button>
@@ -2293,25 +3012,25 @@ function fitur_pengajuan_dosen() {
                 </div>
                 <div id="dsn_cart_footer" style="display:none">
                     <div class="dsn-sum-total">
-                        <span>Total Kebutuhan / Mhs</span>
+                        <span>Total Bahan Dipilih</span>
                         <span id="dsn_cart_total_label">0 jenis</span>
                     </div>
-                    <button type="button" class="btn dsn-btn-submit-step1" onclick="lanjutKeFormPengajuan()">Ajukan Bahan Praktikum</button>
+                    <button type="button" class="btn dsn-btn-submit-step1" onclick="lanjutKeFormPengajuan()">Lanjut Isi Form Detail</button>
                 </div>
             </aside>
         </div>
     </div>
 
     <!-- ======================================================================
-         TAHAP 2: RINGKASAN ITEM & FORM PENGAJUAN BAHAN (2 SEMESTER)
+         TAHAP 2: RINGKASAN ITEM & FORM PERMINTAAN / USULAN KEBUTUHAN BAHAN
          ====================================================================== -->
     <div id="dsn_step_form" style="display:none;margin-bottom:28px">
         <button type="button" class="dsn-back-btn" onclick="kembaliKeKatalog()">&lt; Kembali ke Katalog</button>
-        <h2 style="margin:0 0 14px;font-size:24px">Ajukan Kebutuhan Bahan Praktikum (2 Semester)</h2>
+        <h2 id="dsn_step2_heading" style="margin:0 0 14px;font-size:24px">Form Permintaan Penggunaan &amp; Usulan Kebutuhan Bahan</h2>
 
         <div class="box">
-            <h3 style="margin:0 0 4px">Ringkasan Item Pengajuan Bahan</h3>
-            <p class="muted" style="font-size:13px;margin:0 0 14px">Periksa kembali daftar bahan praktikum yang akan diajukan untuk 2 semester. Total kebutuhan dihitung otomatis dari ukuran per mahasiswa &times; jumlah mahasiswa.</p>
+            <h3 style="margin:0 0 4px">Ringkasan Item Bahan</h3>
+            <p class="muted" style="font-size:13px;margin:0 0 14px">Periksa kembali daftar bahan yang dipilih. Total kebutuhan dihitung otomatis dari ukuran per orang/sampel &times; jumlah mahasiswa/sampel.</p>
             <div class="tablewrap">
                 <table>
                     <thead>
@@ -2320,16 +3039,16 @@ function fitur_pengajuan_dosen() {
                             <th>Nama Bahan</th>
                             <th>Kategori</th>
                             <th>Spesifikasi &amp; Ukuran Pcs</th>
-                            <th>Ukuran / Mhs</th>
-                            <th>Total (2 Smt)</th>
-                            <th>Status Stok</th>
+                            <th>Ukuran / Orang</th>
+                            <th>Total Kebutuhan</th>
+                            <th>Keterangan</th>
                         </tr>
                     </thead>
                     <tbody id="dsn_review_tbody"></tbody>
                 </table>
             </div>
             <div class="dsn-sum-total" style="margin-top:12px">
-                <span>Total Keseluruhan Bahan Diajukan</span>
+                <span>Total Keseluruhan Bahan</span>
                 <span id="dsn_review_total_badge">0 jenis</span>
             </div>
         </div>
@@ -2338,8 +3057,33 @@ function fitur_pengajuan_dosen() {
             <?= field_csrf() ?>
             <input type="hidden" name="items_json" id="dsn_items_json" value="">
 
-            <h3 style="margin:0 0 12px">Form Pengajuan Bahan Praktikum</h3>
-            <div class="dsn-section-label">1. Data Dosen &amp; Kelas Praktikum (Kebutuhan 2 Semester)</div>
+            <h3 style="margin:0 0 12px">Detail Transaksi Dosen</h3>
+            <div class="dsn-section-label">1. Jenis Transaksi, Keperluan &amp; Laboratorium Tujuan</div>
+
+            <div class="grid3">
+                <div>
+                    <label for="f_jenis_transaksi">Jenis Transaksi *</label>
+                    <select id="f_jenis_transaksi" name="jenis_transaksi">
+                        <option value="permintaan_pakai">Permintaan Penggunaan Bahan di Lab</option>
+                        <option value="usulan_2smt"<?= !$periodeAktif ? ' disabled' : '' ?>>Usulan Kebutuhan Bahan (Pengadaan 2 Semester)</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="f_kategori_penggunaan">Kategori Keperluan *</label>
+                    <select id="f_kategori_penggunaan" name="kategori_penggunaan">
+                        <option value="praktikum">Praktikum Mahasiswa</option>
+                        <option value="penelitian">Penelitian / Non-Praktikum</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="f_lab_tujuan">Laboratorium Tujuan *</label>
+                    <select id="f_lab_tujuan" name="lab_tujuan">
+                        <?php foreach (LAB_LIST as $lb): ?>
+                        <option value="<?= e($lb) ?>"><?= e($lb) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
 
             <div class="grid2">
                 <div>
@@ -2354,23 +3098,23 @@ function fitur_pengajuan_dosen() {
 
             <div class="grid2">
                 <div>
-                    <label for="f_kelas">Kelas / Program Studi *</label>
-                    <input id="f_kelas" name="kelas" placeholder="mis. 2B - D3 Teknik Mesin" required>
+                    <label for="f_kelas">Kelas / Program Studi / Tim Penelitian *</label>
+                    <input id="f_kelas" name="kelas" placeholder="mis. 2B - D3 Teknik Mesin atau Tim Penelitian Material" required>
                 </div>
                 <div>
-                    <label for="f_jml_mhs">Jumlah mahasiswa di kelas (2 Semester) *</label>
+                    <label for="f_jml_mhs">Jumlah mahasiswa / sampel uji *</label>
                     <input id="f_jml_mhs" name="jml_mhs" type="number" min="1" value="24" placeholder="mis. 24" required oninput="renderReviewTable()">
                 </div>
             </div>
 
             <div class="grid2">
                 <div>
-                    <label for="f_sub_praktikum">Mata kuliah / Sub Praktikum *</label>
-                    <input id="f_sub_praktikum" name="sub_praktikum" placeholder="mis. Bubut Bertingkat / Praktik Pemesinan" required>
+                    <label for="f_sub_praktikum">Mata kuliah / Jobsheet / Judul Penelitian *</label>
+                    <input id="f_sub_praktikum" name="sub_praktikum" placeholder="mis. Praktik Pemesinan Bubut / Penelitian Uji Tarik" required>
                 </div>
                 <div>
-                    <label for="f_semester_info">Periode Kebutuhan</label>
-                    <input id="f_semester_info" value="2 Semester (Ganjil & Genap)" readonly style="background:#F8FAFC;font-weight:600">
+                    <label for="f_semester_info">Time Frame &amp; Periode</label>
+                    <input id="f_semester_info" value="<?= e($br['tahun_ajaran'] . ' (Time Frame: ' . $br['bulan_mulai'] . '–' . $br['bulan_selesai'] . ')') ?>" readonly style="background:#F8FAFC;font-weight:600">
                 </div>
             </div>
 
@@ -2378,7 +3122,7 @@ function fitur_pengajuan_dosen() {
 
             <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px">
                 <button type="button" class="btn sec" onclick="kembaliKeKatalog()">Ubah Pilihan Bahan</button>
-                <button type="submit" class="btn">Kirim Pengajuan ke PLP</button>
+                <button type="submit" class="btn">Kirim ke PLP Laboratorium</button>
             </div>
         </form>
     </div>
@@ -2386,10 +3130,10 @@ function fitur_pengajuan_dosen() {
     <!-- Modal Tambah Bahan Baru -->
     <div class="dsn-modal-backdrop" id="modal_bahan_baru">
         <div class="dsn-modal form">
-            <h3>Tambah Bahan Praktikum Baru</h3>
-            <p class="muted" style="font-size:13px;margin:0 0 14px">Tambahkan bahan habis pakai baru yang belum ada di katalog untuk diajukan ke PLP.</p>
+            <h3>Usulan Kebutuhan Bahan Baru</h3>
+            <p class="muted" style="font-size:13px;margin:0 0 14px">Tambahkan data kebutuhan bahan baru yang belum tersedia di daftar master beserta jumlah kebutuhannya.</p>
             <label for="mb_nama">Nama Bahan Baru *</label>
-            <input id="mb_nama" placeholder="Contoh: Aluminium Silinder">
+            <input id="mb_nama" placeholder="Contoh: Aluminium Silinder 6061">
             <label for="mb_spek">Spesifikasi / Ukuran *</label>
             <input id="mb_spek" placeholder="Contoh: Ø25 mm, 1 pcs = 100 cm">
             <div class="grid3">
@@ -2402,7 +3146,7 @@ function fitur_pengajuan_dosen() {
                     <input id="mb_uk_pcs" type="number" min="1" value="100">
                 </div>
                 <div>
-                    <label for="mb_uk_mhs">Ukuran / Mhs *</label>
+                    <label for="mb_uk_mhs">Kebutuhan / Orang *</label>
                     <input id="mb_uk_mhs" type="number" min="1" value="15">
                 </div>
             </div>
@@ -2413,13 +3157,13 @@ function fitur_pengajuan_dosen() {
         </div>
     </div>
 
-    <h2>Status Pengajuan Bahan 2 Semester Saya</h2>
+    <h2>Riwayat Permintaan Penggunaan &amp; Usulan Kebutuhan Bahan Saya</h2>
     <?php dosen_table($milik); ?>
 
     <script>
     const MASTER_BAHAN = <?= json_encode(array_values($d['barang']), JSON_UNESCAPED_UNICODE) ?>;
+    const IS_PEJABAT = <?= $isPejabat ? 'true' : 'false' ?>;
 
-    // Map bahan by kode
     const bahanMap = {};
     MASTER_BAHAN.forEach(b => {
         bahanMap[b.kode] = {
@@ -2428,14 +3172,47 @@ function fitur_pengajuan_dosen() {
             spesifikasi: b.spesifikasi,
             satuan: b.satuan,
             ukuran_pcs: +(b.ukuran_pcs || 1),
-            stok: +(b.stok || 0),
-            minimum: +(b.minimum || 0),
             is_new: false
         };
     });
 
-    // Cart menyimpan { kode: uk_per_mhs }
     const cart = {};
+
+    function syncFilterKatalogDosen() {
+        const selMk = document.getElementById('sel_matkul_ampu');
+        const selKat = document.getElementById('sel_kategori_pakai');
+        const selJns = document.getElementById('sel_jenis_transaksi');
+        const opt = selMk ? selMk.selectedOptions[0] : null;
+        const kat = selKat ? selKat.value : 'praktikum';
+        const allowedStr = (opt && opt.dataset.bahan) ? opt.dataset.bahan : '';
+        const allowedList = allowedStr ? allowedStr.split(',').map(s => s.trim()).filter(Boolean) : [];
+        const q = (document.getElementById('dsn_search').value || '').trim().toLowerCase();
+
+        document.querySelectorAll('#dsn_bahan_grid .dsn-card').forEach(card => {
+            const kd = card.dataset.kode || '';
+            const hay = card.dataset.search || '';
+            const matchQ = (q === '' || hay.includes(q));
+            // Untuk praktikum oleh Dosen Biasa, batasi hanya bahan yang digunakan pada mata kuliah yang diampunya (atau bahan baru)
+            let matchMk = true;
+            if (!IS_PEJABAT && kat === 'praktikum' && allowedList.length > 0 && kd !== '__NEW__' && !kd.startsWith('BARU-')) {
+                matchMk = allowedList.includes(kd);
+            }
+            card.style.display = (matchQ && matchMk) ? '' : 'none';
+        });
+
+        if (opt) {
+            if (opt.dataset.lab) document.getElementById('f_lab_tujuan').value = opt.dataset.lab;
+            if (kat === 'praktikum') {
+                if (opt.dataset.nama) document.getElementById('f_sub_praktikum').value = opt.dataset.nama + (opt.dataset.jobsheet ? ' (' + opt.dataset.jobsheet + ')' : '');
+                if (opt.dataset.prodi && !document.getElementById('f_kelas').value) document.getElementById('f_kelas').value = '2B - ' + opt.dataset.prodi;
+            } else {
+                document.getElementById('f_sub_praktikum').placeholder = 'Masukkan judul kegiatan penelitian / pengujian';
+                document.getElementById('f_kelas').placeholder = 'Masukkan nama tim penelitian / laboratorium';
+            }
+        }
+        if (selJns) document.getElementById('f_jenis_transaksi').value = selJns.value;
+        if (selKat) document.getElementById('f_kategori_penggunaan').value = selKat.value;
+    }
 
     function ubahQty(kode, delta) {
         const cur = +(cart[kode] || 0);
@@ -2488,12 +3265,9 @@ function fitur_pengajuan_dosen() {
             spesifikasi: fullSpek,
             satuan: satuan,
             ukuran_pcs: ukPcs,
-            stok: 0,
-            minimum: 0,
             is_new: true
         };
 
-        // Tambahkan kartu baru ke grid
         const grid = document.getElementById('dsn_bahan_grid');
         const stepVal = satuan === 'cm' ? 5 : 1;
         const art = document.createElement('article');
@@ -2504,10 +3278,9 @@ function fitur_pengajuan_dosen() {
         art.innerHTML = `
             <div>
                 <h4>${esc(nama)}</h4>
-                <p class="dsn-card-spec">Bahan Baru &middot; ${esc(fullSpek)}</p>
+                <p class="dsn-card-spec">Usulan Bahan Baru &middot; ${esc(fullSpek)}</p>
                 <div class="dsn-card-stock">
-                    <span>Stok 0 ${esc(satuan)}</span>
-                    <span class="chip warn">Bahan Baru</span>
+                    <span class="chip warn">Usulan Bahan Baru</span>
                 </div>
             </div>
             <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px">
@@ -2516,7 +3289,7 @@ function fitur_pengajuan_dosen() {
                     <input type="number" min="0" value="${ukMhs}" class="dsn-qty-input" id="qty_${kode}" oninput="setQtyManual('${kode}', this.value)">
                     <button type="button" class="dsn-qty-btn" onclick="ubahQty('${kode}', ${stepVal})">+</button>
                 </div>
-                <small class="muted" style="font-size:11.5px;font-weight:600">${esc(satuan)} / mhs</small>
+                <small class="muted" style="font-size:11.5px;font-weight:600">${esc(satuan)} / org</small>
             </div>
         `;
         grid.insertBefore(art, grid.lastElementChild);
@@ -2547,14 +3320,14 @@ function fitur_pengajuan_dosen() {
             const stepVal = b.satuan === 'cm' ? 5 : 1;
             const statusChip = b.is_new
                 ? '<span class="chip warn">Bahan Baru</span>'
-                : '<span class="chip ok">Tersedia</span>';
+                : '<span class="chip ok">Dipilih</span>';
             html += `
                 <div class="dsn-sum-item">
                     <div class="dsn-sum-head">
                         <strong>${esc(b.nama)}</strong>
                         ${statusChip}
                     </div>
-                    <div class="dsn-sum-spec">${esc(b.spesifikasi)} (${qty} ${esc(b.satuan)}/mhs)</div>
+                    <div class="dsn-sum-spec">${esc(b.spesifikasi)} (${qty} ${esc(b.satuan)}/org)</div>
                     <div class="dsn-sum-ctrl">
                         <div class="dsn-qty-ctrl">
                             <button type="button" class="dsn-qty-btn" onclick="ubahQty('${kode}', -${stepVal})">&minus;</button>
@@ -2574,6 +3347,7 @@ function fitur_pengajuan_dosen() {
 
     function lanjutKeFormPengajuan() {
         if (Object.keys(cart).length === 0) return;
+        syncFilterKatalogDosen();
         document.getElementById('dsn_step_catalog').style.display = 'none';
         document.getElementById('dsn_step_form').style.display = 'block';
         renderReviewTable();
@@ -2612,10 +3386,9 @@ function fitur_pengajuan_dosen() {
                 is_new: !!b.is_new
             });
 
-            const cukup = !b.is_new && b.stok >= total2Smt;
             const chipHtml = b.is_new
-                ? '<span class="chip warn">Bahan Baru</span>'
-                : (cukup ? '<span class="chip ok">Stok Cukup</span>' : '<span class="chip warn">Perlu Pengadaan</span>');
+                ? '<span class="chip warn">Usulan Bahan Baru</span>'
+                : '<span class="chip ok">Sesuai Matkul Diampu</span>';
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
@@ -2623,47 +3396,43 @@ function fitur_pengajuan_dosen() {
                 <td><strong>${esc(b.nama)}</strong></td>
                 <td>Bahan Habis Pakai</td>
                 <td>${esc(b.spesifikasi)} (1 pcs = ${b.ukuran_pcs} ${esc(b.satuan)})</td>
-                <td>${ukMhs} ${esc(b.satuan)} / mhs</td>
+                <td>${ukMhs} ${esc(b.satuan)} / org</td>
                 <td><strong>${total2Smt} ${esc(b.satuan)}</strong> (≈ ${pcs} pcs)</td>
                 <td>${chipHtml}</td>
             `;
             tbody.appendChild(tr);
         });
 
-        document.getElementById('dsn_review_total_badge').textContent = `${keys.length} jenis bahan (≈ ${totalPcsAll} pcs untuk ${jmlMhs} mhs)`;
+        document.getElementById('dsn_review_total_badge').textContent = `${keys.length} jenis bahan (≈ ${totalPcsAll} pcs untuk ${jmlMhs} orang/sampel)`;
         document.getElementById('dsn_items_json').value = JSON.stringify(payload);
         document.getElementById('dsn_calc_summary').textContent =
-            `Ringkasan Perhitungan 2 Semester: ${keys.length} jenis bahan untuk ${jmlMhs} mahasiswa (Total setara ≈ ${totalPcsAll} pcs/batang). Setelah dikirim, PLP akan meninjau dan menetapkan stok minimum.`;
+            `Ringkasan Kebutuhan: ${keys.length} jenis bahan untuk ${jmlMhs} mahasiswa/sampel (Total setara ≈ ${totalPcsAll} pcs/batang). Setelah dikirim, PLP akan meninjau serta menggabungkannya dengan silabus/jobsheet untuk pengajuan ke Kepala Lab.`;
     }
 
-    // Live search filter pada katalog kotak-kotak
-    document.getElementById('dsn_search').addEventListener('input', function () {
-        const q = this.value.trim().toLowerCase();
-        document.querySelectorAll('#dsn_bahan_grid .dsn-card').forEach(card => {
-            const hay = card.dataset.search || '';
-            card.style.display = (q === '' || hay.includes(q)) ? '' : 'none';
-        });
-    });
+    document.getElementById('dsn_search').addEventListener('input', syncFilterKatalogDosen);
 
     function esc(s) {
         return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
+    syncFilterKatalogDosen();
     </script>
     <?php
     require __DIR__ . '/partials/footer.php';
 }
 
-// Mahasiswa Point 1, 2, 3:
-// 1. NIM otomatis terisi dari akun mahasiswa yang sedang login
-// 2. Tanggal tercatat otomatis (date('Y-m-d'))
-// 3. Form disederhanakan: kelas & sub kelas dihapus dari form, total jatah otomatis dari praktikum, cukup isi jumlah diambil & sisa otomatis terhitung
+// Mahasiswa (Revisi Notulensi Bagian 4):
+// - Akun Individu & Tidak Dapat Diwakilkan: pengambilan bahan hanya dilakukan oleh 1 mahasiswa yang bersangkutan.
+// - Penanganan Kelebihan Jatah (Over-Limit): mendukung pencatatan jatah minus dan kompensasi/denda ketika mahasiswa mengambil melebihi batas jatah praktikum.
 function fitur_konfirmasi_mhs() {
     $redirect = role_url('permintaan');
+    $d = db();
+    $br = $d['business_rules'];
+    $tarifDenda = (int)($br['denda_per_satuan'] ?? 5000);
+    $izinkanOverLimit = ($br['kebijakan_overlimit'] ?? '') !== 'Batasi Ketat Sesuai Jatah Maksimum';
+
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         check_csrf();
-        $d = db();
 
-        // Jika mahasiswa mengajukan pengambilan sisa dari pengambilan sebagian sebelumnya
         if (($_POST['aksi_mhs'] ?? '') === 'ambil_sisa') {
             $parentIdx = find_idx($d['permintaan'], 'id', post_int('parent_id'));
             $jmlSisa = post_int('jumlah_sisa');
@@ -2675,7 +3444,7 @@ function fitur_konfirmasi_mhs() {
             $sisaBaru = $parent['sisa_ambil'];
             $d['permintaan'][] = [
                 'id' => count($d['permintaan']) + 1,
-                'tanggal' => date('Y-m-d'), // tercatat otomatis
+                'tanggal' => date('Y-m-d'),
                 'nim' => $_SESSION['user']['nim'] ?? ($parent['nim'] ?? ''),
                 'oleh' => $_SESSION['user']['nama'],
                 'oleh_email' => $_SESSION['user']['email'],
@@ -2687,16 +3456,22 @@ function fitur_konfirmasi_mhs() {
                 'total_jatah' => $parent['total_jatah'] ?? $parent['jumlah'],
                 'jumlah' => $jmlSisa,
                 'sisa_ambil' => $sisaBaru,
+                'jatah_minus' => 0,
+                'kompensasi' => '',
                 'kelas' => $parent['kelas'],
                 'sub_praktikum' => $parent['sub_praktikum'],
-                'ket' => "Pengambilan Lanjutan (Sisa) Praktikum: {$parent['sub_praktikum']} | Diambil: $jmlSisa {$parent['satuan']} (Sisa: $sisaBaru {$parent['satuan']})",
+                'ket' => "Pengambilan Lanjutan Individu (Tidak Diwakilkan): {$parent['sub_praktikum']} | Diambil: $jmlSisa {$parent['satuan']} (Sisa: $sisaBaru {$parent['satuan']})",
                 'status' => 'menunggu',
                 'disetujui_oleh' => '',
                 'catatan' => '',
             ];
             unset($parent);
             save($d);
-            go($redirect, "Pengajuan pengambilan sisa bahan ($jmlSisa) berhasil dikirim dengan tanggal otomatis hari ini.");
+            go($redirect, "Permintaan pengambilan sisa bahan ($jmlSisa) oleh akun individu Anda berhasil dikirim.");
+        }
+
+        if (empty($_POST['pernyataan_individu'])) {
+            go($redirect, 'Wajib mencentang pernyataan bahwa pengambilan bahan dilakukan secara individu dan tidak diwakilkan.', 'bad');
         }
 
         $pdId = post_int('pengajuan_dosen_id');
@@ -2705,7 +3480,8 @@ function fitur_konfirmasi_mhs() {
         $jml = post_int('jumlah');
         $kelas = trim($_POST['kelas'] ?? '');
         $sub = trim($_POST['sub_praktikum'] ?? '');
-        $tglOtomatis = date('Y-m-d'); // Tanggal tercatat otomatis tanpa input form
+        $alasanOver = trim($_POST['alasan_overlimit'] ?? '');
+        $tglOtomatis = date('Y-m-d');
 
         if ($pdId > 0) {
             $idxPd = find_idx($d['pengajuan_dosen'], 'id', $pdId);
@@ -2720,24 +3496,32 @@ function fitur_konfirmasi_mhs() {
             $n = find_idx($d['barang'], 'kode', $_POST['kode'] ?? '');
         }
 
-        if ($n === null) {
-            go($redirect, 'Silakan pilih praktikum yang valid.', 'bad');
+        if ($n === null || $jml < 1) {
+            go($redirect, 'Silakan pilih praktikum yang valid dan masukkan jumlah bahan yang diambil (minimal 1).', 'bad');
         }
 
-        if ($jml < 1) {
-            go($redirect, 'Masukkan jumlah bahan yang diambil (minimal 1).', 'bad');
+        if (!$izinkanOverLimit && $totalJatah > 0 && $jml > $totalJatah) {
+            go($redirect, "Jumlah yang diambil ($jml) melebihi batas jatah ($totalJatah).", 'bad');
         }
 
-        if ($totalJatah > 0 && $jml > $totalJatah) {
-            go($redirect, "Jumlah yang diambil ($jml) tidak boleh melebihi total jatah ($totalJatah).", 'bad');
-        }
-
-        $sisaAmbil = max(0, $totalJatah - $jml);
-        $tipeAmbil = $sisaAmbil > 0 ? 'sebagian' : 'penuh';
+        $selisih = $totalJatah - $jml;
+        $sisaAmbil = max(0, $selisih);
+        $jatahMinus = $selisih < 0 ? abs($selisih) : 0;
         $b = $d['barang'][$n];
-        $ketAmbil = $sisaAmbil > 0
-            ? "Pengambilan: Sebagian ($jml/$totalJatah {$b['satuan']}, sisa $sisaAmbil {$b['satuan']})"
-            : "Pengambilan: Penuh ($jml {$b['satuan']})";
+
+        $kompensasi = '';
+        if ($jatahMinus > 0) {
+            $nominalDenda = $jatahMinus * $tarifDenda;
+            $kompensasi = "Jatah Minus -{$jatahMinus} {$b['satuan']} (Kompensasi/Denda Rp " . number_format($nominalDenda, 0, ',', '.') . ($alasanOver !== '' ? " - Alasan: $alasanOver" : '') . ")";
+            $tipeAmbil = 'over_limit';
+            $ketAmbil = "Pengambilan Over-Limit ($jml/$totalJatah {$b['satuan']} | $kompensasi)";
+        } elseif ($sisaAmbil > 0) {
+            $tipeAmbil = 'sebagian';
+            $ketAmbil = "Pengambilan Sebagian ($jml/$totalJatah {$b['satuan']}, sisa $sisaAmbil {$b['satuan']})";
+        } else {
+            $tipeAmbil = 'penuh';
+            $ketAmbil = "Pengambilan Penuh ($jml {$b['satuan']})";
+        }
 
         $userNim = $_SESSION['user']['nim'] ?? '';
         if (empty($userNim)) {
@@ -2762,20 +3546,24 @@ function fitur_konfirmasi_mhs() {
             'total_jatah' => $totalJatah,
             'jumlah' => $jml,
             'sisa_ambil' => $sisaAmbil,
+            'jatah_minus' => $jatahMinus,
+            'kompensasi' => $kompensasi,
             'kelas' => $kelas,
             'sub_praktikum' => $sub,
-            'ket' => "Konfirmasi Praktikum" . ($sub !== '' ? ": $sub" : '') . " | $ketAmbil",
+            'ket' => "Pengambilan Individu (1 Mhs, Tidak Diwakilkan) - Praktikum: $sub | $ketAmbil",
             'status' => 'menunggu',
             'disetujui_oleh' => '',
             'catatan' => '',
         ];
         save($d);
-        go($redirect, "Konfirmasi praktikum & pengajuan pengambilan ($ketAmbil) berhasil dikirim pada tanggal $tglOtomatis.");
+        go($redirect, "Permintaan pengambilan bahan individu ($ketAmbil) berhasil dikirim pada tanggal $tglOtomatis.");
     }
-    $title = 'Halo, ' . $_SESSION['user']['nama']; $active = 'permintaan'; $d = db();
+
+    $title = 'Halo, ' . $_SESSION['user']['nama']; $active = 'permintaan';
     $jadwalDosen = array_filter($d['pengajuan_dosen'], fn($r) => $r['status'] === 'disetujui');
     if (!$jadwalDosen) $jadwalDosen = $d['pengajuan_dosen'];
-    $milik = array_reverse(array_filter($d['permintaan'], fn($r) => $r['oleh_email'] === $_SESSION['user']['email'] || norm_role($_SESSION['user']['role']) === 'mhs'));
+    // Sesuai Notulensi Bagian 4: Setiap mahasiswa hanya melihat dan mengelola akun individunya sendiri
+    $milik = array_reverse(array_filter($d['permintaan'], fn($r) => ($r['oleh_email'] ?? '') === ($_SESSION['user']['email'] ?? '')));
     $userNim = $_SESSION['user']['nim'] ?? '';
     if (empty($userNim)) {
         $idxU = find_idx($d['users'], 'email', $_SESSION['user']['email'] ?? '');
@@ -2786,30 +3574,30 @@ function fitur_konfirmasi_mhs() {
     }
     $mhsDisetujui = count(array_filter($milik, fn($r) => $r['status'] === 'disetujui'));
     $mhsMenunggu  = count(array_filter($milik, fn($r) => $r['status'] === 'menunggu'));
-    $mhsSisa      = count(array_filter($milik, fn($r) => ($r['sisa_ambil'] ?? 0) > 0 && $r['status'] === 'disetujui'));
+    $totalMinus   = array_sum(array_map(fn($r) => (int)($r['jatah_minus'] ?? 0), $milik));
     require __DIR__ . '/partials/header.php';
     ?>
     <div class="cards cards-3">
         <div>
-            <span>Pengambilan disetujui</span>
+            <span>Pengambilan individu disetujui</span>
             <strong><?= str_pad((string)$mhsDisetujui, 2, '0', STR_PAD_LEFT) ?></strong>
         </div>
         <div>
-            <span>Menunggu persetujuan</span>
+            <span>Menunggu pelayanan PLP/Teknisi</span>
             <strong><?= str_pad((string)$mhsMenunggu, 2, '0', STR_PAD_LEFT) ?></strong>
         </div>
         <div>
-            <span>Masih ada sisa jatah</span>
-            <strong><?= str_pad((string)$mhsSisa, 2, '0', STR_PAD_LEFT) ?></strong>
+            <span>Catatan jatah minus (Over-Limit)</span>
+            <strong style="color:<?= $totalMinus > 0 ? 'var(--bad)' : 'var(--theme)' ?>"><?= $totalMinus > 0 ? '-' . e($totalMinus) : '00' ?></strong>
         </div>
     </div>
     <?php
-    render_wf_steps('Cara konfirmasi & pengambilan bahan praktikum', [
-        'Pilih praktikum dosen',
-        'Isi jumlah bahan diambil',
-        'Diverifikasi PLP / Teknisi',
-        'Ambil bahan / sisa jatah',
-    ], $mhsDisetujui > 0 ? 3 : ($mhsMenunggu > 0 ? 2 : 1), 'NIM (' . ($userNim ?: '-') . ') dan tanggal hari ini (' . date('Y-m-d') . ') tercatat otomatis dari akun Anda.');
+    render_wf_steps('Alur pengambilan bahan praktikum (Akun Individu Mahasiswa)', [
+        'Login akun individu (1 Mhs)',
+        'Pilih praktikum & jumlah bahan',
+        'Pencatatan jatah / jatah minus',
+        'Dilayani Teknisi / PLP di Lab',
+    ], $mhsDisetujui > 0 ? 3 : ($mhsMenunggu > 0 ? 2 : 1), 'Aturan Lab: Pengambilan bahan hanya boleh dilakukan oleh 1 mahasiswa pemilik akun (' . $_SESSION['user']['nama'] . ' - NIM ' . ($userNim ?: '-') . ') dan TIDAK DAPAT DIWAKILKAN.');
     ?>
     <form class="box form" method="post">
         <?= field_csrf() ?>
@@ -2818,15 +3606,15 @@ function fitur_konfirmasi_mhs() {
 
         <div class="grid3">
             <div>
-                <label for="nim">NIM Mahasiswa (Otomatis)</label>
-                <input id="nim" name="nim" type="text" value="<?= e($userNim) ?>" readonly style="background:#f1f5f9;cursor:not-allowed">
+                <label for="nim">NIM Individu (Otomatis &amp; Terkunci)</label>
+                <input id="nim" name="nim" type="text" value="<?= e($userNim) ?>" readonly style="background:#f1f5f9;cursor:not-allowed;font-weight:700">
             </div>
             <div>
-                <label for="nama_mhs">Nama Mahasiswa (Akun)</label>
-                <input id="nama_mhs" type="text" value="<?= e($_SESSION['user']['nama']) ?>" readonly style="background:#f1f5f9;cursor:not-allowed">
+                <label for="nama_mhs">Nama Mahasiswa (1 Mahasiswa, Tidak Diwakilkan)</label>
+                <input id="nama_mhs" type="text" value="<?= e($_SESSION['user']['nama']) ?>" readonly style="background:#f1f5f9;cursor:not-allowed;font-weight:700">
             </div>
             <div>
-                <label for="tanggal_otomatis">Tanggal (Otomatis)</label>
+                <label for="tanggal_otomatis">Tanggal Pengambilan (Otomatis)</label>
                 <input id="tanggal_otomatis" type="text" value="<?= date('Y-m-d') ?>" readonly style="background:#f1f5f9;cursor:not-allowed">
             </div>
         </div>
@@ -2838,9 +3626,9 @@ function fitur_konfirmasi_mhs() {
         }
         ?>
         <?php if ($jadwalDosen): ?>
-        <label for="pengajuan_dosen_id">Pilih Kegiatan Praktikum (dari Pengajuan Dosen)</label>
+        <label for="pengajuan_dosen_id">Pilih Kegiatan Praktikum</label>
         <select id="pengajuan_dosen_id" name="pengajuan_dosen_id" required>
-            <option value="">-- Pilih praktikum dosen --</option>
+            <option value="">-- Pilih praktikum --</option>
             <?php foreach ($jadwalDosen as $jd):
                 $bInfo = $barangMap[$jd['kode']] ?? null;
                 $namaBahanLengkap = $bInfo ? ($bInfo['nama'] . ' - ' . $bInfo['spesifikasi'] . ' (' . $bInfo['satuan'] . ')') : $jd['nama'];
@@ -2852,35 +3640,46 @@ function fitur_konfirmasi_mhs() {
                 data-sub="<?= e($jd['sub_praktikum']) ?>"
                 data-jatah="<?= e($jd['ukuran_per_mhs'] ?? 10) ?>"
                 data-satuan="<?= e($jd['satuan']) ?>">
-                <?= e($jd['sub_praktikum'] . ' | Kelas ' . $jd['kelas'] . ' | Bahan: ' . $jd['nama'] . ' (Jatah: ' . ($jd['ukuran_per_mhs'] ?? '-') . ' ' . $jd['satuan'] . ')') ?>
+                <?= e($jd['sub_praktikum'] . ' | Kelas ' . $jd['kelas'] . ' | Bahan: ' . $jd['nama'] . ' (Jatah Standar: ' . ($jd['ukuran_per_mhs'] ?? '-') . ' ' . $jd['satuan'] . '/mhs)') ?>
             </option>
             <?php endforeach; ?>
         </select>
         <?php endif; ?>
 
         <input type="hidden" id="kode" name="kode" value="">
-        <label for="nama_bahan_tampil">Nama Bahan yang Diambil (Otomatis Sesuai Praktikum)</label>
+        <label for="nama_bahan_tampil">Nama Bahan Praktikum</label>
         <input id="nama_bahan_tampil" type="text" readonly style="background:#f1f5f9;cursor:not-allowed;font-weight:600" placeholder="Otomatis terisi sesuai kegiatan praktikum yang dipilih" required>
 
         <div class="grid3">
             <div>
-                <label for="total_jatah">Total Jatah (Otomatis Terisi)</label>
+                <label for="total_jatah">Batas Jatah Standar per Mahasiswa</label>
                 <input id="total_jatah" name="total_jatah" type="number" readonly style="background:#f1f5f9;cursor:not-allowed" placeholder="Otomatis dari praktikum" required>
             </div>
             <div>
-                <label for="jumlah">Jumlah yang Diambil</label>
-                <input id="jumlah" name="jumlah" type="number" min="1" placeholder="Masukkan jumlah yang diambil" required>
+                <label for="jumlah">Jumlah yang Diambil (Bisa Over-Limit jika gagal potong)</label>
+                <input id="jumlah" name="jumlah" type="number" min="1" placeholder="Masukkan jumlah diambil" required>
             </div>
             <div>
-                <label for="sisa_tampil">Sisa Jatah</label>
-                <input id="sisa_tampil" type="text" readonly style="background:#f1f5f9;cursor:not-allowed;font-weight:600" placeholder="Kelihatan sisa di sini">
+                <label for="sisa_tampil">Status Sisa / Jatah Minus (Over-Limit)</label>
+                <input id="sisa_tampil" type="text" readonly style="background:#f1f5f9;cursor:not-allowed;font-weight:700" placeholder="Status jatah">
             </div>
         </div>
 
-        <p id="info_ambil" class="calc">Pilih praktikum di atas untuk mengisi total jatah otomatis, lalu tentukan jumlah yang diambil untuk melihat sisa bahan.</p>
-        <button class="btn" type="submit">Kirim Konfirmasi &amp; Pengajuan Pengambilan</button>
+        <div id="box_overlimit" style="display:none;margin:4px 0 14px;padding:12px 14px;background:var(--bad-bg);border:1px solid #FDA29B;border-radius:10px">
+            <label for="alasan_overlimit" style="color:var(--bad);font-weight:700">Keterangan Kelebihan Jatah (Over-Limit) &amp; Kompensasi/Denda:</label>
+            <input id="alasan_overlimit" name="alasan_overlimit" placeholder="Contoh: Benda kerja gagal bubut / patah sehingga butuh tambahan bahan (siap kompensasi/denda)" style="margin-bottom:4px">
+            <small style="color:var(--bad);display:block;font-size:12px">Sesuai aturan laboratorium, penggunaan bahan melebihi batas jatah dicatat sebagai <strong>Jatah Minus</strong> dan dikenakan kewajiban penggantian/kompensasi (Rp <?= number_format($tarifDenda, 0, ',', '.') ?>/satuan lebih).</small>
+        </div>
+
+        <label style="display:flex;align-items:center;gap:8px;margin:8px 0 14px;cursor:pointer;font-weight:600;color:var(--ink)">
+            <input type="checkbox" name="pernyataan_individu" value="1" required style="width:18px;height:18px;margin:0">
+            <span>Saya menyatakan pengambilan bahan ini dilakukan oleh saya sendiri (<strong><?= e($_SESSION['user']['nama']) ?></strong>) menggunakan akun individu dan <strong>tidak diwakilkan</strong> kepada orang lain.</span>
+        </label>
+
+        <p id="info_ambil" class="calc">Pilih praktikum di atas untuk mengisi batas jatah standar, lalu tentukan jumlah yang diambil.</p>
+        <button class="btn" type="submit">Kirim Permintaan Pengambilan Individu</button>
     </form>
-    <h2>Status Konfirmasi &amp; Pengambilan Bahan Saya</h2>
+    <h2>Riwayat Pengambilan Bahan Praktikum Individu Saya</h2>
     <?php mhs_table($milik, false, true); ?>
     <script>
     const selPd = document.getElementById('pengajuan_dosen_id');
@@ -2892,6 +3691,9 @@ function fitur_konfirmasi_mhs() {
     const inKelas = document.getElementById('kelas');
     const inSub = document.getElementById('sub_praktikum');
     const infoAmbil = document.getElementById('info_ambil');
+    const boxOver = document.getElementById('box_overlimit');
+    const TARIF_DENDA = <?= $tarifDenda ?>;
+    const IZINKAN_OVER = <?= $izinkanOverLimit ? 'true' : 'false' ?>;
 
     function syncAmbil() {
         const jatah = +inJatah.value || 0;
@@ -2904,30 +3706,37 @@ function fitur_konfirmasi_mhs() {
         if (jatah <= 0) {
             outSisa.value = '-';
             outSisa.style.color = '';
-            infoAmbil.textContent = 'Pilih kegiatan praktikum untuk memuat bahan dan total jatah secara otomatis.';
+            if (boxOver) boxOver.style.display = 'none';
+            infoAmbil.textContent = 'Pilih kegiatan praktikum untuk memuat bahan dan batas jatah secara otomatis.';
             return;
         }
 
         if (ambil <= 0) {
             outSisa.value = jatah + (satuan ? ' ' + satuan : '');
             outSisa.style.color = '';
-            infoAmbil.textContent = 'Total jatah: ' + jatah + ' ' + satuan + '. Silakan masukkan jumlah yang diambil.';
+            if (boxOver) boxOver.style.display = 'none';
+            infoAmbil.textContent = 'Batas jatah individu: ' + jatah + ' ' + satuan + '. Silakan masukkan jumlah yang diambil.';
             return;
         }
 
         const sisa = jatah - ambil;
-        if (ambil > jatah) {
-            outSisa.value = 'Melebihi jatah!';
+        if (sisa < 0) {
+            const minus = Math.abs(sisa);
+            const denda = minus * TARIF_DENDA;
+            outSisa.value = 'Minus -' + minus + ' ' + satuan + ' (Over-Limit)';
             outSisa.style.color = '#dc2626';
-            infoAmbil.textContent = 'Peringatan: Jumlah yang diambil (' + ambil + ') melebihi total jatah (' + jatah + ').';
+            if (boxOver) boxOver.style.display = 'block';
+            infoAmbil.textContent = `Over-Limit (Melebihi Jatah): Anda mengambil ${ambil} ${satuan} dari jatah ${jatah} ${satuan}. Tercatat Jatah Minus -${minus} ${satuan} dengan estimasi kompensasi/denda Rp ${denda.toLocaleString('id-ID')}.`;
         } else if (sisa === 0) {
-            outSisa.value = '0 (Lunas / Penuh)';
+            outSisa.value = '0 (Tepat Jatah / Lunas)';
             outSisa.style.color = '#16a34a';
-            infoAmbil.textContent = 'Pengambilan penuh: seluruh jatah (' + ambil + ' ' + satuan + ') diambil sekaligus.';
+            if (boxOver) boxOver.style.display = 'none';
+            infoAmbil.textContent = 'Pengambilan penuh sesuai jatah: seluruh jatah (' + ambil + ' ' + satuan + ') diambil sekaligus.';
         } else {
-            outSisa.value = sisa + (satuan ? ' ' + satuan : '') + ' (Sisa)';
+            outSisa.value = sisa + (satuan ? ' ' + satuan : '') + ' (Sisa Jatah)';
             outSisa.style.color = '#d97706';
-            infoAmbil.textContent = 'Pengambilan sebagian: diambil ' + ambil + ' ' + satuan + ', sisa ' + sisa + ' ' + satuan + ' dapat diambil pada praktikum berikutnya.';
+            if (boxOver) boxOver.style.display = 'none';
+            infoAmbil.textContent = 'Pengambilan sebagian: diambil ' + ambil + ' ' + satuan + ', sisa ' + sisa + ' ' + satuan + ' dapat diambil pada sesi berikutnya.';
         }
     }
 
@@ -2941,7 +3750,7 @@ function fitur_konfirmasi_mhs() {
                 if (inSub) inSub.value = opt.dataset.sub || '';
                 const jatah = opt.dataset.jatah || 10;
                 inJatah.value = jatah;
-                inJml.max = jatah;
+                if (!IZINKAN_OVER) inJml.max = jatah; else inJml.removeAttribute('max');
                 syncAmbil();
             } else {
                 if (inKode) inKode.value = '';

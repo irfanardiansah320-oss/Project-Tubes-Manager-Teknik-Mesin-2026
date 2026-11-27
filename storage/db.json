@@ -1,33 +1,71 @@
 {
     "users": [
         {
+            "email": "admin@polban.ac.id",
+            "nama": "Administrator Jurusan",
+            "role": "admin",
+            "jabatan": "",
+            "nip": "199001012020121001",
+            "lab": "Kantor Jurusan Teknik Mesin",
+            "hash": "$2y$12$elnWViB9rmQp\/\/0GQc.FvujWnl5m0a0GKVUvRXhTmS3\/HpoBknKom"
+        },
+        {
+            "email": "dosen@polban.ac.id",
+            "nama": "Pak Irfan (Dosen Pengampu)",
+            "role": "dosen",
+            "jabatan": "biasa",
+            "nip": "198508192012121003",
+            "lab": "Lab Permesinan",
+            "hash": "$2y$12$elnWViB9rmQp\/\/0GQc.FvujWnl5m0a0GKVUvRXhTmS3\/HpoBknKom"
+        },
+        {
+            "email": "dosen.kalab@polban.ac.id",
+            "nama": "Dr. Budi Santoso, M.T. (Dosen - Kalab)",
+            "role": "dosen",
+            "jabatan": "kalab",
+            "nip": "197805122005011002",
+            "lab": "Lab Permesinan",
+            "hash": "$2y$12$elnWViB9rmQp\/\/0GQc.FvujWnl5m0a0GKVUvRXhTmS3\/HpoBknKom"
+        },
+        {
+            "email": "dosen.kajur@polban.ac.id",
+            "nama": "Ir. Hendra Wijaya, M.Eng. (Dosen - Kajur)",
+            "role": "dosen",
+            "jabatan": "kajur",
+            "nip": "197503102001121001",
+            "lab": "Kantor Jurusan Teknik Mesin",
+            "hash": "$2y$12$elnWViB9rmQp\/\/0GQc.FvujWnl5m0a0GKVUvRXhTmS3\/HpoBknKom"
+        },
+        {
             "email": "kalab@polban.ac.id",
-            "nama": "Kepala Lab",
-            "role": "kalab",
+            "nama": "Dr. Budi Santoso, M.T. (Dosen - Kalab)",
+            "role": "dosen",
+            "jabatan": "kalab",
+            "nip": "197805122005011002",
+            "lab": "Lab Permesinan",
             "hash": "$2y$12$elnWViB9rmQp\/\/0GQc.FvujWnl5m0a0GKVUvRXhTmS3\/HpoBknKom"
         },
         {
             "email": "kajur@polban.ac.id",
-            "nama": "Ketua Jurusan",
-            "role": "kajur",
+            "nama": "Ir. Hendra Wijaya, M.Eng. (Dosen - Kajur)",
+            "role": "dosen",
+            "jabatan": "kajur",
+            "nip": "197503102001121001",
+            "lab": "Kantor Jurusan Teknik Mesin",
             "hash": "$2y$12$elnWViB9rmQp\/\/0GQc.FvujWnl5m0a0GKVUvRXhTmS3\/HpoBknKom"
         },
         {
             "email": "teknisi@polban.ac.id",
             "nama": "Teknisi Lab",
             "role": "teknisi",
+            "lab": "Lab Permesinan",
             "hash": "$2y$12$elnWViB9rmQp\/\/0GQc.FvujWnl5m0a0GKVUvRXhTmS3\/HpoBknKom"
         },
         {
             "email": "plp@polban.ac.id",
             "nama": "PLP",
             "role": "plp",
-            "hash": "$2y$12$elnWViB9rmQp\/\/0GQc.FvujWnl5m0a0GKVUvRXhTmS3\/HpoBknKom"
-        },
-        {
-            "email": "dosen@polban.ac.id",
-            "nama": "Dosen Pengampu",
-            "role": "dosen",
+            "lab": "Lab Permesinan",
             "hash": "$2y$12$elnWViB9rmQp\/\/0GQc.FvujWnl5m0a0GKVUvRXhTmS3\/HpoBknKom"
         },
         {
@@ -88,6 +126,17 @@
             "rak": "A-04",
             "minimum": 15,
             "stok": 495,
+            "foto": ""
+        },
+        {
+            "kode": "MPK-0029",
+            "nama": "Amplas",
+            "spesifikasi": "150",
+            "satuan": "lembar",
+            "ukuran_pcs": 100,
+            "rak": "",
+            "minimum": 10,
+            "stok": 0,
             "foto": ""
         }
     ],
@@ -210,6 +259,29 @@
             "diajukan_ke_kalab": true,
             "catatan": "",
             "disetujui_oleh": "PLP (Pranata Laboratorium Pendidikan)"
+        },
+        {
+            "id": 6,
+            "tanggal": "2026-11-27",
+            "oleh": "Pak Tria",
+            "oleh_email": "dosen@polban.ac.id",
+            "kode": "MPK-0029",
+            "nama": "Amplas",
+            "satuan": "lembar",
+            "ukuran_pcs": 100,
+            "ukuran_per_mhs": 10,
+            "jml_mhs": 30,
+            "jumlah": 300,
+            "jml_pcs": 3,
+            "stok": 0,
+            "pesan": 300,
+            "kelas": "2A - Teknik Mesin",
+            "sub_praktikum": "Praktikum 2",
+            "ket": "Kelas: 2A - Teknik Mesin | Sub: Praktikum 2 | 30 mhs × 10 lembar (1 pcs = 100 lembar, butuh 3 pcs)",
+            "status": "disetujui",
+            "diajukan_ke_kalab": true,
+            "catatan": "",
+            "disetujui_oleh": "PLP (Pranata Laboratorium Pendidikan)"
         }
     ],
     "pengajuan": [
@@ -322,6 +394,28 @@
             "status": "selesai",
             "disetujui_oleh": "Kepala Lab (Kepala Lab)",
             "catatan": "baik"
+        },
+        {
+            "id": 6,
+            "tanggal": "2026-11-27",
+            "oleh": "PLP",
+            "oleh_email": "plp@polban.ac.id",
+            "pengajuan_dosen_id": 6,
+            "kode": "MPK-0029",
+            "nama": "Amplas",
+            "satuan": "lembar",
+            "ukuran_pcs": 100,
+            "ukuran_per_mhs": 10,
+            "jml_mhs": 30,
+            "jml_pcs": 4,
+            "minimum_baru": 10,
+            "jumlah": 330,
+            "stok": 0,
+            "pesan": 330,
+            "ket": "Praktikum 2 - 2A - Teknik Mesin: 30 mhs × 10 lembar (+tol 10% = 330 lembar \/ 4 pcs @100 lembar), stok 0, perlu dipesan 330 lembar (4 pcs), stok min: 10 lembar",
+            "status": "dipesan",
+            "disetujui_oleh": "Kepala Lab (Kepala Lab)",
+            "catatan": "Saya setuju"
         }
     ],
     "permintaan": [
@@ -408,6 +502,27 @@
             "status": "menunggu",
             "disetujui_oleh": "",
             "catatan": ""
+        },
+        {
+            "id": 5,
+            "tanggal": "2026-11-27",
+            "nim": "231211002",
+            "oleh": "Mahasiswa Contoh 2",
+            "oleh_email": "mahasiswa@polban.ac.id",
+            "pengajuan_dosen_id": 6,
+            "kode": "MPK-0029",
+            "nama": "Amplas",
+            "satuan": "lembar",
+            "tipe_ambil": "sebagian",
+            "total_jatah": 10,
+            "jumlah": 5,
+            "sisa_ambil": 5,
+            "kelas": "2A - Teknik Mesin",
+            "sub_praktikum": "Praktikum 2",
+            "ket": "Konfirmasi Praktikum: Praktikum 2 | Pengambilan: Sebagian (5\/10 lembar, sisa 5 lembar)",
+            "status": "disetujui",
+            "disetujui_oleh": "PLP (Pranata Laboratorium Pendidikan)",
+            "catatan": ""
         }
     ],
     "stockopname": [
@@ -474,6 +589,17 @@
             "satuan": "mm",
             "jumlah": 495,
             "status": "selesai"
+        },
+        {
+            "id": 2,
+            "tanggal": "2026-11-27",
+            "oleh": "PLP",
+            "pengajuan_id": 6,
+            "kode": "MPK-0029",
+            "nama": "Amplas",
+            "satuan": "lembar",
+            "jumlah": 330,
+            "status": "diajukan"
         }
     ],
     "log": [
