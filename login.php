@@ -81,7 +81,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <label for="laboratorium">Laboratorium</label>
             <select id="laboratorium" name="laboratorium">
                 <option value="Lab Permesinan">Lab Permesinan</option>
-                <option value="Lab Kerja Bangku">Lab Kerja Bangku</option>
                 <option value="Lab Pengelasan &amp; Fabrikasi">Lab Pengelasan &amp; Fabrikasi</option>
                 <option value="Lab CNC &amp; Otomasi">Lab CNC &amp; Otomasi</option>
             </select>
