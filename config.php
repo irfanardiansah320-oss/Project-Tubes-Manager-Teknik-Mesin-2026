@@ -242,11 +242,13 @@ function db() {
         if (!isset($b['ukuran_pcs']) || $b['ukuran_pcs'] < 1) {
             $b['ukuran_pcs'] = $b['satuan'] === 'cm' ? 100 : 1;
         }
-        if (!isset($d['rak_kapasitas'][$b['rak']])) {
+        $b['rak'] = trim((string)($b['rak'] ?? ''));
+        if ($b['rak'] !== '' && !isset($d['rak_kapasitas'][$b['rak']])) {
             $d['rak_kapasitas'][$b['rak']] = 500;
         }
     }
     unset($b);
+    unset($d['rak_kapasitas']['']);
     return $d;
 }
 
@@ -480,6 +482,7 @@ function sidebar_badges($roleKey) {
 
     return [
         'peringatan' => $lowCount,
+        'masuk' => count(array_filter($d['pembelian'], fn($r) => ($r['status'] ?? '') === 'diajukan')),
         'tinjau' => $roleKey === 'plp' ? ($waitDosen + $waitMhs) : $waitMhs,
         'approval_kalab' => $waitKalab,
         'cek_barang' => $waitOpname,
@@ -707,7 +710,7 @@ function fitur_dashboard() {
     $q = strtolower(trim($_GET['q'] ?? ''));
     $rak = $_GET['rak'] ?? '';
     $st = $_GET['status'] ?? '';
-    $raks = array_values(array_unique(array_column($all, 'rak'))); sort($raks);
+    $raks = array_values(array_filter(array_unique(array_column($all, 'rak')), fn($r) => trim((string)$r) !== '')); sort($raks);
     $list = array_filter($all, function ($i) use ($q, $rak, $st) {
         if ($q !== '' && !str_contains(strtolower($i['nama'] . ' ' . $i['kode'] . ' ' . $i['spesifikasi']), $q)) return false;
         if ($rak !== '' && $i['rak'] !== $rak) return false;
@@ -785,14 +788,14 @@ function fitur_dashboard() {
                     <tr><th>Bahan / Rak</th><th>Keterangan</th><th>Status</th></tr>
                     <?php foreach (array_slice($lowItems, 0, 3) as $li): ?>
                     <tr>
-                        <td><strong><?= e($li['nama']) ?></strong> (Rak <?= e($li['rak']) ?>)</td>
+                        <td><strong><?= e($li['nama']) ?></strong> (<?= $li['rak'] !== '' ? 'Rak ' . e($li['rak']) : 'Belum masuk rak' ?>)</td>
                         <td>Sisa <?= e($li['stok']) ?> / min <?= e($li['minimum'] . ' ' . $li['satuan']) ?></td>
                         <td><span class="chip bad">Di bawah minimum</span></td>
                     </tr>
                     <?php endforeach; ?>
                     <?php foreach (array_slice(array_reverse($waitOpname), 0, 2) as $wo): ?>
                     <tr>
-                        <td><strong><?= e($wo['nama']) ?></strong> (Rak <?= e($wo['rak']) ?>)</td>
+                        <td><strong><?= e($wo['nama']) ?></strong> (<?= !empty($wo['rak']) ? 'Rak ' . e($wo['rak']) : 'Belum masuk rak' ?>)</td>
                         <td>Fisik: <?= e($wo['stok_fisik'] . ' ' . $wo['satuan']) ?> (Oleh <?= e($wo['oleh']) ?>)</td>
                         <td><a href="<?= e(role_url('cek_barang')) ?>" class="chip warn" style="text-decoration:none">Menunggu cek PLP</a></td>
                     </tr>
@@ -948,10 +951,14 @@ function fitur_dashboard() {
     <div class="catalog-grid">
         <?php foreach ($list as $i):
             $isLow = low($i);
-            $lok = rak_lokasi($d, $i['rak']);
-            $lokStr = ($lok['ruangan'] !== 'Belum diatur' ? $lok['ruangan'] . ' › ' : '')
-                    . ($lok['lemari'] !== 'Belum diatur' ? $lok['lemari'] . ' › ' : '')
-                    . 'Rak ' . $i['rak'];
+            if ($i['rak'] !== '') {
+                $lok = rak_lokasi($d, $i['rak']);
+                $lokStr = ($lok['ruangan'] !== 'Belum diatur' ? $lok['ruangan'] . ' › ' : '')
+                        . ($lok['lemari'] !== 'Belum diatur' ? $lok['lemari'] . ' › ' : '')
+                        . 'Rak ' . $i['rak'];
+            } else {
+                $lokStr = 'Belum masuk rak';
+            }
         ?>
         <article class="catalog-card">
             <div>
@@ -999,7 +1006,7 @@ function fitur_stok() {
     <tr>
         <td><?= e($i['kode']) ?></td><td><?= e($i['nama']) ?></td><td><?= e($i['spesifikasi']) ?></td>
         <td>1 pcs = <?= e(($i['ukuran_pcs'] ?? 1) . ' ' . $i['satuan']) ?></td>
-        <td><?= e($i['rak']) ?></td><td><?= e($i['satuan']) ?></td><td><?= e($i['minimum']) ?></td><td><?= e($i['stok']) ?></td>
+        <td><?= $i['rak'] !== '' ? e($i['rak']) : '<span class="muted">Belum masuk rak</span>' ?></td><td><?= e($i['satuan']) ?></td><td><?= e($i['minimum']) ?></td><td><?= e($i['stok']) ?></td>
         <td><span class="chip <?= low($i) ? 'bad' : 'ok' ?>"><?= low($i) ? 'Di bawah minimum' : 'Aman' ?></span></td>
         <?php if ($role === 'plp'): ?>
         <td>
@@ -1059,16 +1066,19 @@ function fitur_rak() {
             $rakAsal = $d['barang'][$n]['rak'];
             $d['barang'][$n]['rak'] = $rakTujuan;
             save($d);
-            go($redirect, "Barang {$d['barang'][$n]['nama']} berhasil dipindahkan dari Rak $rakAsal ke Rak $rakTujuan.");
+            $asalTxt = $rakAsal !== '' ? "dari Rak $rakAsal " : '';
+            go($redirect, "Barang {$d['barang'][$n]['nama']} berhasil ditempatkan {$asalTxt}ke Rak $rakTujuan.");
         }
     }
 
     $byRak = [];
     foreach (array_keys($d['rak_kapasitas']) as $rName) {
-        $byRak[$rName] = [];
+        if ($rName !== '') $byRak[$rName] = [];
     }
     foreach ($d['barang'] as $i) {
-        $byRak[$i['rak']][] = $i;
+        if ($i['rak'] !== '') {
+            $byRak[$i['rak']][] = $i;
+        }
     }
     ksort($byRak);
 
@@ -1127,8 +1137,10 @@ function fitur_rak() {
             <label for="kode">Pilih Barang yang Dipindahkan</label>
             <select id="kode" name="kode" required>
                 <option value="">-- Pilih barang --</option>
-                <?php foreach ($d['barang'] as $b): ?>
-                <option value="<?= e($b['kode']) ?>"><?= e($b['nama'] . ' (' . $b['kode'] . ') - Stok: ' . $b['stok'] . ' ' . $b['satuan'] . ' [Saat ini di Rak ' . $b['rak'] . ']') ?></option>
+                <?php foreach ($d['barang'] as $b):
+                    $lblRakSaatIni = $b['rak'] !== '' ? 'Saat ini di Rak ' . $b['rak'] : 'Belum masuk rak';
+                ?>
+                <option value="<?= e($b['kode']) ?>"><?= e($b['nama'] . ' (' . $b['kode'] . ') - Stok: ' . $b['stok'] . ' ' . $b['satuan'] . ' [' . $lblRakSaatIni . ']') ?></option>
                 <?php endforeach; ?>
             </select>
             <label for="rak_tujuan">Pilih Rak Tujuan</label>
@@ -1210,7 +1222,7 @@ function fitur_peringatan() {
     <div class="tablewrap"><table>
     <tr><th>Kode</th><th>Barang</th><th>Rak</th><th>Stok</th><th>Minimum</th><th>Kekurangan</th></tr>
     <?php foreach ($rows as $i): ?>
-    <tr><td><?= e($i['kode']) ?></td><td><?= e($i['nama']) ?></td><td><?= e($i['rak']) ?></td><td><?= e($i['stok'] . ' ' . $i['satuan']) ?></td><td><?= e($i['minimum']) ?></td><td><span class="chip bad"><?= e($i['minimum'] - $i['stok']) ?> <?= e($i['satuan']) ?></span></td></tr>
+    <tr><td><?= e($i['kode']) ?></td><td><?= e($i['nama']) ?></td><td><?= $i['rak'] !== '' ? e($i['rak']) : '<span class="muted">Belum masuk rak</span>' ?></td><td><?= e($i['stok'] . ' ' . $i['satuan']) ?></td><td><?= e($i['minimum']) ?></td><td><span class="chip bad"><?= e($i['minimum'] - $i['stok']) ?> <?= e($i['satuan']) ?></span></td></tr>
     <?php endforeach; ?>
     </table></div><?php endif;
     require __DIR__ . '/partials/footer.php';
@@ -1223,8 +1235,14 @@ function fitur_masuk() {
         $d = db(); $n = find_idx($d['barang'], 'kode', $_POST['kode'] ?? ''); $jml = post_int('jumlah');
         if ($n === null || $jml < 1) go($redirect, 'Pilih barang dan isi jumlah lebih dari 0.', 'bad');
 
-        // Barang otomatis masuk ke rak yang sudah ditentukan pada master barang tersebut
-        $targetRak = $d['barang'][$n]['rak'];
+        // Jika barang sudah punya rak, otomatis masuk ke rak tersebut; jika belum masuk rak, gunakan rak pilihan Teknisi
+        $targetRak = trim((string)($d['barang'][$n]['rak'] ?? ''));
+        if ($targetRak === '') {
+            $targetRak = strtoupper(trim((string)($_POST['rak_tujuan'] ?? '')));
+        }
+        if ($targetRak === '') {
+            go($redirect, 'Barang ini belum memiliki rak penyimpanan. Silakan pilih Rak Tujuan Penyimpanan terlebih dahulu.', 'bad');
+        }
         if (!isset($d['rak_kapasitas'][$targetRak])) $d['rak_kapasitas'][$targetRak] = 500;
         $rkInfo = rak_info($d, $targetRak);
 
@@ -1233,37 +1251,132 @@ function fitur_masuk() {
             go($redirect, "Gagal menambahkan stok ke Rak $targetRak! Kapasitas maksimum rak ({$rkInfo['kapasitas']}) terlampaui. Terisi saat ini: {$rkInfo['terpakai']}, sisa kapasitas: {$rkInfo['sisa']}, jumlah masuk: $jml.", 'bad');
         }
 
+        $d['barang'][$n]['rak'] = $targetRak;
         $d['barang'][$n]['stok'] += $jml;
+        $kodeMasuk = $d['barang'][$n]['kode'];
+
+        // Tandai otomatis permintaan pembelian (atau pengajuan yang sudah dipesan) menjadi selesai diterima
+        $pembelianId = post_int('pembelian_id');
+        foreach ($d['pembelian'] as &$pb) {
+            if (($pb['status'] ?? '') === 'diajukan' && (($pembelianId > 0 && (int)$pb['id'] === $pembelianId) || $pb['kode'] === $kodeMasuk)) {
+                $pb['status'] = 'selesai';
+                $idxPg = find_idx($d['pengajuan'], 'id', $pb['pengajuan_id'] ?? 0);
+                if ($idxPg !== null) {
+                    $d['pengajuan'][$idxPg]['status'] = 'selesai';
+                }
+            }
+        }
+        unset($pb);
+
         $totalRakBaru = rak_terpakai($d['barang'], $targetRak);
-        add_log($d, 'masuk', $d['barang'][$n]['kode'], $jml, "Rak $targetRak (Total isi rak: $totalRakBaru/{$rkInfo['kapasitas']}) - " . trim($_POST['catatan'] ?? ''));
+        $catMasuk = trim($_POST['catatan'] ?? '');
+        if ($catMasuk === '') $catMasuk = 'Penerimaan pengadaan / barang masuk';
+        add_log($d, 'masuk', $kodeMasuk, $jml, "Rak $targetRak (Total isi rak: $totalRakBaru/{$rkInfo['kapasitas']}) - " . $catMasuk);
         save($d);
-        go($redirect, "Stok {$d['barang'][$n]['nama']} bertambah $jml {$d['barang'][$n]['satuan']} di Rak $targetRak (Kapasitas terpakai: $totalRakBaru/{$rkInfo['kapasitas']}).");
+        go($redirect, "Stok {$d['barang'][$n]['nama']} bertambah $jml {$d['barang'][$n]['satuan']} dan disimpan di Rak $targetRak (Kapasitas terpakai: $totalRakBaru/{$rkInfo['kapasitas']}).");
     }
+
     $title = 'Barang Masuk'; $active = 'masuk'; $d = db();
     $riwayat = array_slice(array_reverse(array_filter($d['log'], fn($l) => $l['jenis'] === 'masuk')), 0, 10);
+
+    // Hitung total pesanan yang sedang diajukan per kode barang (dari Permintaan Pembelian PLP / Approval Kalab)
+    $dipesanMap = [];
+    $pembelianMenunggu = [];
+    foreach ($d['pembelian'] as $pb) {
+        if (($pb['status'] ?? '') === 'diajukan') {
+            $kd = $pb['kode'];
+            $dipesanMap[$kd] = ($dipesanMap[$kd] ?? 0) + (int)$pb['jumlah'];
+            $pembelianMenunggu[] = $pb;
+        }
+    }
+    foreach ($d['pengajuan'] as $pg) {
+        if (in_array($pg['status'] ?? '', ['disetujui', 'dipesan'], true) && empty($dipesanMap[$pg['kode']]) && ($pg['pesan'] ?? 0) > 0) {
+            $dipesanMap[$pg['kode']] = (int)$pg['pesan'];
+        }
+    }
+
     require __DIR__ . '/partials/header.php';
     ?>
-    <form class="box form" method="post">
+
+    <?php if ($pembelianMenunggu): ?>
+    <div class="box">
+        <h3>Pesanan Pembelian Siap Diterima ke Gudang / Rak</h3>
+        <p class="muted" style="font-size:13px;margin:0 0 12px">Daftar bahan di bawah ini sudah disetujui Kepala Lab dan dibuatkan Permintaan Pembelian oleh PLP. Klik <strong>Pilih &amp; Isi Otomatis</strong> saat barang fisik tiba di laboratorium.</p>
+        <div class="tablewrap">
+            <table>
+                <tr>
+                    <th>No. Pembelian</th>
+                    <th>Tanggal</th>
+                    <th>Nama Bahan</th>
+                    <th>Rak Saat Ini</th>
+                    <th>Jumlah Dipesan</th>
+                    <th>Status</th>
+                    <th>Aksi Teknisi</th>
+                </tr>
+                <?php foreach ($pembelianMenunggu as $pb):
+                    $idxB = find_idx($d['barang'], 'kode', $pb['kode']);
+                    $rakSkrg = ($idxB !== null && $d['barang'][$idxB]['rak'] !== '') ? 'Rak ' . $d['barang'][$idxB]['rak'] : 'Belum masuk rak';
+                ?>
+                <tr>
+                    <td><strong>#PB-<?= e($pb['id']) ?></strong> (Pengajuan #<?= e($pb['pengajuan_id']) ?>)</td>
+                    <td><?= e($pb['tanggal']) ?></td>
+                    <td><strong><?= e($pb['nama']) ?></strong> (<?= e($pb['kode']) ?>)</td>
+                    <td><?= $rakSkrg === 'Belum masuk rak' ? '<span class="chip warn">Belum masuk rak</span>' : e($rakSkrg) ?></td>
+                    <td><strong><?= e($pb['jumlah'] . ' ' . $pb['satuan']) ?></strong></td>
+                    <td><?= chip($pb['status']) ?></td>
+                    <td>
+                        <button type="button" class="btn" style="padding:6px 14px;font-size:12.5px" onclick="isiDariPembelian('<?= e($pb['kode']) ?>', <?= (int)$pb['jumlah'] ?>, <?= (int)$pb['id'] ?>)">Pilih &amp; Isi Otomatis</button>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+            </table>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <form class="box form" method="post" id="form_barang_masuk">
         <?= field_csrf() ?>
+        <input type="hidden" id="pembelian_id" name="pembelian_id" value="0">
         <label for="kode">Pilih Barang Masuk</label>
         <select id="kode" name="kode" required>
             <option value="">-- Pilih barang --</option>
-            <?php foreach ($d['barang'] as $b): $rk = rak_info($d, $b['rak']); $lok = rak_lokasi($d, $b['rak']); ?>
+            <?php foreach ($d['barang'] as $b):
+                $hasRak = ($b['rak'] !== '');
+                $rk = $hasRak ? rak_info($d, $b['rak']) : ['sisa' => '-', 'kapasitas' => '-', 'terpakai' => '-'];
+                $lok = $hasRak ? rak_lokasi($d, $b['rak']) : ['ruangan' => '-', 'lemari' => '-'];
+                $jmlPesan = $dipesanMap[$b['kode']] ?? 0;
+                $pesanInfo = $jmlPesan > 0 ? ' | Dipesan: ' . $jmlPesan . ' ' . $b['satuan'] : '';
+                $labelOpt = $hasRak
+                    ? ($b['nama'] . ' (' . $b['kode'] . ') — Rak ' . $b['rak'] . ' [Stok: ' . $b['stok'] . ' ' . $b['satuan'] . $pesanInfo . ', Sisa rak: ' . $rk['sisa'] . ']')
+                    : ($b['nama'] . ' (' . $b['kode'] . ') — Belum masuk rak [Stok gudang: ' . $b['stok'] . ' ' . $b['satuan'] . $pesanInfo . ']');
+            ?>
                 <option value="<?= e($b['kode']) ?>" 
                         data-rak="<?= e($b['rak']) ?>" 
                         data-stok="<?= e($b['stok']) ?>" 
                         data-satuan="<?= e($b['satuan']) ?>"
+                        data-dipesan="<?= e($jmlPesan) ?>"
                         data-sisa="<?= e($rk['sisa']) ?>"
                         data-kap="<?= e($rk['kapasitas']) ?>"
                         data-terpakai="<?= e($rk['terpakai']) ?>"
                         data-ruangan="<?= e($lok['ruangan']) ?>"
                         data-lemari="<?= e($lok['lemari']) ?>">
-                    <?= e($b['nama'] . ' (' . $b['kode'] . ') — Rak ' . $b['rak'] . ' [Stok: ' . $b['stok'] . ' ' . $b['satuan'] . ', Sisa rak: ' . $rk['sisa'] . ']') ?>
+                    <?= e($labelOpt) ?>
                 </option>
             <?php endforeach; ?>
         </select>
 
-        <div id="info_rak_box" style="display:none;margin:8px 0 16px;padding:12px 14px;background:#F5F7FA;border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:6px">
+        <div id="pilih_rak_baru_box" style="display:none;margin:8px 0 16px;padding:14px 16px;background:var(--warn-bg);border:1px solid #FEC84B;border-radius:10px">
+            <label for="rak_tujuan" style="color:var(--warn);font-weight:700">Barang ini belum dimasukkan ke dalam rak. Pilih Rak Penyimpanan:</label>
+            <select id="rak_tujuan" name="rak_tujuan" style="margin-bottom:4px">
+                <option value="">-- Pilih Rak Tujuan --</option>
+                <?php foreach (array_keys($d['rak_kapasitas']) as $rkName): if ($rkName === '') continue; $inf = rak_info($d, $rkName); ?>
+                <option value="<?= e($rkName) ?>">Rak <?= e($rkName) ?> (Terisi: <?= e($inf['terpakai'] . '/' . $inf['kapasitas']) ?>, Sisa kapasitas: <?= e($inf['sisa']) ?>)</option>
+                <?php endforeach; ?>
+            </select>
+            <small class="muted" style="display:block;font-size:12px">Setelah barang masuk dicatat, barang ini akan terdaftar di rak yang Anda pilih.</small>
+        </div>
+
+        <div id="info_rak_box" style="display:none;margin:8px 0 16px;padding:12px 14px;background:#F5F7FA;border:1px solid var(--line);border-left:4px solid var(--theme);border-radius:6px">
             <div style="font-size:13px;line-height:1.6">
                 <div>Lokasi Penyimpanan: <strong>Rak <span id="lbl_rak">-</span></strong> (<span id="lbl_lokasi">-</span>)</div>
                 <div>Status Kapasitas Rak: Terisi <strong id="lbl_terpakai">0</strong> / <span id="lbl_kap">0</span> &middot; Sisa Ruang Rak: <strong id="lbl_sisa" style="color:#27ae60">0</strong> unit</div>
@@ -1288,25 +1401,62 @@ function fitur_masuk() {
     <script>
     const selBarang = document.getElementById('kode');
     const infoBox = document.getElementById('info_rak_box');
+    const pilihRakBox = document.getElementById('pilih_rak_baru_box');
+    const selRakTujuan = document.getElementById('rak_tujuan');
+    const inJumlah = document.getElementById('jumlah');
+    const inCatatan = document.getElementById('catatan');
+    const inPembelianId = document.getElementById('pembelian_id');
     const lblRak = document.getElementById('lbl_rak');
     const lblLokasi = document.getElementById('lbl_lokasi');
     const lblTerpakai = document.getElementById('lbl_terpakai');
     const lblKap = document.getElementById('lbl_kap');
     const lblSisa = document.getElementById('lbl_sisa');
 
-    if (selBarang && infoBox) {
-        selBarang.addEventListener('change', () => {
-            const opt = selBarang.selectedOptions[0];
-            if (opt && opt.dataset.rak) {
-                lblRak.textContent = opt.dataset.rak;
-                lblLokasi.textContent = 'Ruangan: ' + opt.dataset.ruangan + ', Lemari: ' + opt.dataset.lemari;
-                lblTerpakai.textContent = opt.dataset.terpakai;
-                lblKap.textContent = opt.dataset.kap;
-                lblSisa.textContent = opt.dataset.sisa;
-                infoBox.style.display = 'block';
-            } else {
-                infoBox.style.display = 'none';
+    function syncBarangMasukUI() {
+        const opt = selBarang.selectedOptions[0];
+        if (!opt || !opt.value) {
+            infoBox.style.display = 'none';
+            pilihRakBox.style.display = 'none';
+            selRakTujuan.required = false;
+            return;
+        }
+        const dipesan = +(opt.dataset.dipesan || 0);
+        if (dipesan > 0) {
+            inJumlah.value = dipesan;
+            if (!inCatatan.value) {
+                inCatatan.value = 'Penerimaan dari Permintaan Pembelian PLP (' + dipesan + ' ' + (opt.dataset.satuan || '') + ')';
             }
+        }
+        if (opt.dataset.rak) {
+            lblRak.textContent = opt.dataset.rak;
+            lblLokasi.textContent = 'Ruangan: ' + opt.dataset.ruangan + ', Lemari: ' + opt.dataset.lemari;
+            lblTerpakai.textContent = opt.dataset.terpakai;
+            lblKap.textContent = opt.dataset.kap;
+            lblSisa.textContent = opt.dataset.sisa;
+            infoBox.style.display = 'block';
+            pilihRakBox.style.display = 'none';
+            selRakTujuan.required = false;
+        } else {
+            infoBox.style.display = 'none';
+            pilihRakBox.style.display = 'block';
+            selRakTujuan.required = true;
+        }
+    }
+
+    function isiDariPembelian(kode, jumlah, pbId) {
+        selBarang.value = kode;
+        inPembelianId.value = pbId;
+        syncBarangMasukUI();
+        inJumlah.value = jumlah;
+        inCatatan.value = 'Penerimaan Permintaan Pembelian #PB-' + pbId;
+        document.getElementById('form_barang_masuk').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    if (selBarang) {
+        selBarang.addEventListener('change', () => {
+            inPembelianId.value = 0;
+            inCatatan.value = '';
+            syncBarangMasukUI();
         });
     }
     </script>
@@ -1394,9 +1544,11 @@ function fitur_stockopname() {
         <label for="kode">Pilih Barang yang Didata</label>
         <select id="kode" name="kode" required>
             <option value="">Pilih barang</option>
-            <?php foreach ($d['barang'] as $b): ?>
+            <?php foreach ($d['barang'] as $b):
+                $rkTxt = $b['rak'] !== '' ? 'Rak ' . $b['rak'] : 'Belum masuk rak';
+            ?>
             <option value="<?= e($b['kode']) ?>" data-stok="<?= e($b['stok']) ?>" data-satuan="<?= e($b['satuan']) ?>">
-                <?= e($b['nama'] . ' (' . $b['kode'] . ') - Rak ' . $b['rak'] . ' | Stok Sistem: ' . $b['stok'] . ' ' . $b['satuan']) ?>
+                <?= e($b['nama'] . ' (' . $b['kode'] . ') - ' . $rkTxt . ' | Stok Sistem: ' . $b['stok'] . ' ' . $b['satuan']) ?>
             </option>
             <?php endforeach; ?>
         </select>
@@ -1524,11 +1676,11 @@ function fitur_cek_barang() {
     <h2>2. Cek Real-Time Kondisi Barang & Rak Saat Ini</h2>
     <div class="tablewrap"><table>
         <tr><th>Kode</th><th>Nama Barang</th><th>Rak & Status Kapasitas</th><th>Stok Sistem Aktual</th><th>Stok Minimum</th><th>Kondisi Stok</th></tr>
-        <?php foreach ($d['barang'] as $b): $rk = rak_info($d, $b['rak']); ?>
+        <?php foreach ($d['barang'] as $b): $hasRak = ($b['rak'] !== ''); $rk = $hasRak ? rak_info($d, $b['rak']) : null; ?>
         <tr>
             <td><?= e($b['kode']) ?></td>
             <td><?= e($b['nama']) ?> <br><small class="muted"><?= e($b['spesifikasi']) ?></small></td>
-            <td>Rak <?= e($b['rak']) ?> <span class="chip <?= e($rk['chip']) ?>"><?= e($rk['terpakai'] . '/' . $rk['kapasitas'] . ' (' . $rk['status'] . ')') ?></span></td>
+            <td><?php if ($hasRak): ?>Rak <?= e($b['rak']) ?> <span class="chip <?= e($rk['chip']) ?>"><?= e($rk['terpakai'] . '/' . $rk['kapasitas'] . ' (' . $rk['status'] . ')') ?></span><?php else: ?><span class="muted">Belum masuk rak</span><?php endif; ?></td>
             <td><strong><?= e($b['stok'] . ' ' . $b['satuan']) ?></strong> (≈ <?= ceil($b['stok'] / max(1, $b['ukuran_pcs'] ?? 1)) ?> pcs)</td>
             <td><?= e($b['minimum'] . ' ' . $b['satuan']) ?></td>
             <td><span class="chip <?= low($b) ? 'bad' : 'ok' ?>"><?= low($b) ? 'Di bawah minimum' : 'Sesuai / Aman' ?></span></td>
@@ -1952,7 +2104,7 @@ function fitur_pengajuan_dosen() {
                         'spesifikasi' => $spekBaru !== '' ? $spekBaru : "1 pcs = $ukPcsBaru $satuanBaru",
                         'satuan' => $satuanBaru,
                         'ukuran_pcs' => $ukPcsBaru,
-                        'rak' => 'A-02',
+                        'rak' => '',
                         'minimum' => $jml,
                         'stok' => 0,
                         'foto' => '',
@@ -2027,7 +2179,7 @@ function fitur_pengajuan_dosen() {
                 'spesifikasi' => $spekBaru,
                 'satuan' => $satuanBaru,
                 'ukuran_pcs' => $ukPcsBaru,
-                'rak' => 'A-02',
+                'rak' => '',
                 'minimum' => $jml,
                 'stok' => 0,
                 'foto' => '',

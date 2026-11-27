@@ -78,12 +78,24 @@
             "minimum": 3,
             "stok": 5,
             "foto": ""
+        },
+        {
+            "kode": "MPK-0028",
+            "nama": "Alumunium",
+            "spesifikasi": "diameter 35x38",
+            "satuan": "mm",
+            "ukuran_pcs": 30,
+            "rak": "A-04",
+            "minimum": 15,
+            "stok": 495,
+            "foto": ""
         }
     ],
     "rak_kapasitas": {
         "A-01": 50,
         "A-02": 500,
-        "A-03": 500
+        "A-03": 500,
+        "A-04": 500
     },
     "pengajuan_dosen": [
         {
@@ -171,6 +183,29 @@
             "kelas": "2D - Teknik Mesin",
             "sub_praktikum": "Las",
             "ket": "Kelas: 2D - Teknik Mesin | Sub: Las | 30 mhs × 30 cm (1 pcs = 100 cm, butuh 9 pcs)",
+            "status": "disetujui",
+            "diajukan_ke_kalab": true,
+            "catatan": "",
+            "disetujui_oleh": "PLP (Pranata Laboratorium Pendidikan)"
+        },
+        {
+            "id": 5,
+            "tanggal": "2026-11-27",
+            "oleh": "Pak irfan",
+            "oleh_email": "dosen@polban.ac.id",
+            "kode": "MPK-0028",
+            "nama": "Alumunium",
+            "satuan": "mm",
+            "ukuran_pcs": 30,
+            "ukuran_per_mhs": 15,
+            "jml_mhs": 30,
+            "jumlah": 450,
+            "jml_pcs": 15,
+            "stok": 0,
+            "pesan": 450,
+            "kelas": "2Z - Teknik Mesin",
+            "sub_praktikum": "Praktikum 1",
+            "ket": "Kelas: 2Z - Teknik Mesin | Sub: Praktikum 1 | 30 mhs × 15 mm (1 pcs = 30 mm, butuh 15 pcs)",
             "status": "disetujui",
             "diajukan_ke_kalab": true,
             "catatan": "",
@@ -265,6 +300,28 @@
             "status": "menunggu",
             "disetujui_oleh": "",
             "catatan": ""
+        },
+        {
+            "id": 5,
+            "tanggal": "2026-11-27",
+            "oleh": "PLP",
+            "oleh_email": "plp@polban.ac.id",
+            "pengajuan_dosen_id": 5,
+            "kode": "MPK-0028",
+            "nama": "Alumunium",
+            "satuan": "mm",
+            "ukuran_pcs": 30,
+            "ukuran_per_mhs": 15,
+            "jml_mhs": 30,
+            "jml_pcs": 17,
+            "minimum_baru": 10,
+            "jumlah": 495,
+            "stok": 0,
+            "pesan": 495,
+            "ket": "Praktikum 1 - 2Z - Teknik Mesin: 30 mhs × 15 mm (+tol 10% = 495 mm \/ 17 pcs @30 mm), stok 0, perlu dipesan 495 mm (17 pcs), stok min: 10 mm",
+            "status": "selesai",
+            "disetujui_oleh": "Kepala Lab (Kepala Lab)",
+            "catatan": "baik"
         }
     ],
     "permintaan": [
@@ -309,6 +366,48 @@
             "status": "menunggu",
             "disetujui_oleh": "",
             "catatan": ""
+        },
+        {
+            "id": 3,
+            "tanggal": "2026-11-27",
+            "nim": "231211002",
+            "oleh": "Mahasiswa Contoh 2",
+            "oleh_email": "mahasiswa@polban.ac.id",
+            "pengajuan_dosen_id": 5,
+            "kode": "MPK-0028",
+            "nama": "Alumunium",
+            "satuan": "mm",
+            "tipe_ambil": "sebagian",
+            "total_jatah": 15,
+            "jumlah": 5,
+            "sisa_ambil": 0,
+            "kelas": "2Z - Teknik Mesin",
+            "sub_praktikum": "Praktikum 1",
+            "ket": "Konfirmasi Praktikum: Praktikum 1 | Pengambilan: Sebagian (5\/15 mm, sisa 10 mm)",
+            "status": "disetujui",
+            "disetujui_oleh": "Teknisi Lab (Teknisi)",
+            "catatan": ""
+        },
+        {
+            "id": 4,
+            "tanggal": "2026-11-27",
+            "nim": "231211002",
+            "oleh": "Mahasiswa Contoh 2",
+            "oleh_email": "mahasiswa@polban.ac.id",
+            "pengajuan_dosen_id": 5,
+            "kode": "MPK-0028",
+            "nama": "Alumunium",
+            "satuan": "mm",
+            "tipe_ambil": "penuh",
+            "total_jatah": 15,
+            "jumlah": 10,
+            "sisa_ambil": 0,
+            "kelas": "2Z - Teknik Mesin",
+            "sub_praktikum": "Praktikum 1",
+            "ket": "Pengambilan Lanjutan (Sisa) Praktikum: Praktikum 1 | Diambil: 10 mm (Sisa: 0 mm)",
+            "status": "menunggu",
+            "disetujui_oleh": "",
+            "catatan": ""
         }
     ],
     "stockopname": [
@@ -342,12 +441,41 @@
             "selisih": 40,
             "kondisi": "Sesuai \/ Baik",
             "catatan": "dihitung dari rak A02",
-            "status": "menunggu_cek_plp",
-            "dicek_oleh": "",
+            "status": "ditolak",
+            "dicek_oleh": "PLP",
             "catatan_plp": ""
+        },
+        {
+            "id": 3,
+            "waktu": "2026-11-27 12:42",
+            "oleh": "Teknisi Lab",
+            "kode": "MPK-0028",
+            "nama": "Alumunium",
+            "satuan": "mm",
+            "rak": "A-04",
+            "stok_sistem": 495,
+            "stok_fisik": 495,
+            "selisih": 0,
+            "kondisi": "Sebagian Rusak \/ Aus",
+            "catatan": "kena tipu vendor nich",
+            "status": "terverifikasi",
+            "dicek_oleh": "PLP",
+            "catatan_plp": "asli wak aduh"
         }
     ],
-    "pembelian": [],
+    "pembelian": [
+        {
+            "id": 1,
+            "tanggal": "2026-11-27",
+            "oleh": "PLP",
+            "pengajuan_id": 5,
+            "kode": "MPK-0028",
+            "nama": "Alumunium",
+            "satuan": "mm",
+            "jumlah": 495,
+            "status": "selesai"
+        }
+    ],
     "log": [
         {
             "id": 1,
@@ -359,7 +487,34 @@
             "catatan": "Cek Real-Time PLP: Stok disesuaikan ke kondisi fisik asli (10 cm)",
             "dicek_plp": true,
             "dicek_oleh": "PLP"
+        },
+        {
+            "id": 2,
+            "waktu": "2026-11-27 12:41",
+            "oleh": "Teknisi Lab",
+            "jenis": "masuk",
+            "kode": "MPK-0028",
+            "jumlah": 495,
+            "catatan": "Rak A-04 (Total isi rak: 495\/500) - Penerimaan Permintaan Pembelian #PB-1",
+            "dicek_plp": true,
+            "dicek_oleh": "PLP"
+        },
+        {
+            "id": 3,
+            "waktu": "2026-11-27 12:44",
+            "oleh": "PLP",
+            "jenis": "opname",
+            "kode": "MPK-0028",
+            "jumlah": 495,
+            "catatan": "Cek Real-Time PLP: Stok disesuaikan ke kondisi fisik asli (495 mm)",
+            "dicek_plp": true,
+            "dicek_oleh": "PLP"
         }
     ],
-    "rak_lokasi": []
+    "rak_lokasi": {
+        "A-04": {
+            "ruangan": "Ruang 1",
+            "lemari": "Lemari 1"
+        }
+    }
 }
