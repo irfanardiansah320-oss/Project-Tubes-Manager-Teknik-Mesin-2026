@@ -414,6 +414,40 @@ input, select, textarea {
     text-decoration: underline;
 }
 
+/* Footer logout di sidebar (di bawah nav) */
+.sb-footer {
+    margin-top: auto;
+    padding-top: 10px;
+}
+
+.sb-footer .sb-logout-form {
+    margin: 0;
+}
+
+/* Tombol logout bergaya "Sign out" seperti referensi */
+.sb-footer .sb-logout-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: rgba(255,255,255,0.9);
+    font-size: 13.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+    text-align: left;
+}
+
+.sb-footer .sb-logout-btn:hover {
+    background: rgba(255,255,255,0.18);
+    text-decoration: none;
+    color: #fff;
+}
+
 /* Main Content Area */
 main {
     padding: 28px 36px 48px;
@@ -1480,7 +1514,46 @@ th.chk, td.chk {
     font-weight: 800;
 }
 
+/* ==========================================================================
+   RESPONSIVE — Sidebar Drawer (Mobile) + Sticky Sidebar (Desktop)
+   ========================================================================== */
+
+/* --- Elemen yang HANYA muncul di mobile --- */
+.sb-toggle,
+.sb-close,
+.sb-overlay,
+.sb-user-top {
+    display: none;
+}
+
+/* --- Desktop: sidebar fixed di kiri, main di kanan --- */
+@media (min-width: 961px) {
+    .shell {
+        display: grid;
+        grid-template-columns: 265px 1fr;
+        min-height: 100vh;
+    }
+    .sidebar {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        overflow-y: auto;
+    }
+    /* Sembunyikan info user atas (hanya untuk mobile drawer) */
+    .sb-user-top { display: none; }
+    .sb-close    { display: none; }
+    .sb-toggle   { display: none; }
+    .sb-overlay  { display: none; }
+
+    /* Footer logout di desktop */
+    .sb-footer {
+        margin-top: auto;
+    }
+}
+
+/* --- Tablet & Mobile: sidebar jadi drawer dari kiri --- */
 @media (max-width: 960px) {
+    /* Login page */
     .wf-login-split {
         grid-template-columns: 1fr;
     }
@@ -1488,23 +1561,245 @@ th.chk, td.chk {
         border-right: 0;
         border-bottom: 1px solid #E4E7EC;
     }
+
+    /* Layout utama: single column */
     .shell {
-        grid-template-columns: 1fr;
+        display: block;
     }
+
+    /* Sidebar jadi fixed drawer geser dari kiri */
     .sidebar {
-        position: static;
-        height: auto;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 280px;
+        height: 100vh;
+        overflow-y: auto;
+        transform: translateX(-100%);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 1000;
+        box-shadow: 4px 0 24px rgba(0,0,0,0.18);
     }
+    .sidebar.open {
+        transform: translateX(0);
+    }
+
+    /* Overlay gelap saat sidebar terbuka */
+    .sb-overlay {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 999;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+    }
+    .sb-overlay.show {
+        opacity: 1;
+        pointer-events: all;
+    }
+
+    /* Tombol close (X) di dalam sidebar */
+    .sb-close {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        background: none;
+        border: 0;
+        color: rgba(255,255,255,0.8);
+        font-size: 18px;
+        font-weight: 700;
+        cursor: pointer;
+        padding: 0 4px 8px;
+        margin-bottom: 4px;
+        width: 100%;
+    }
+    .sb-close:hover {
+        color: #fff;
+    }
+
+    /* Info user di atas sidebar (mobile only) */
+    .sb-user-top {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: var(--theme-box);
+        border: 1px solid rgba(255,255,255,0.14);
+        border-radius: 14px;
+        padding: 14px 16px;
+        margin-bottom: 4px;
+    }
+    .sb-avatar {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.22);
+        color: #fff;
+        font-size: 18px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        text-transform: uppercase;
+    }
+    .sb-user-top-info .sb-user-name {
+        font-size: 14px;
+        font-weight: 700;
+        color: #fff;
+    }
+    .sb-user-top-info .sb-user-name small {
+        font-size: 12px;
+        font-weight: 500;
+        opacity: 0.75;
+    }
+    .sb-user-top-info .sb-user-role {
+        font-size: 12px;
+        color: rgba(255,255,255,0.75);
+        margin-top: 2px;
+        margin-bottom: 0;
+    }
+
+    /* Sembunyikan .sb-user lama di mobile (digantikan sb-user-top) */
+    .sb-user {
+        display: none;
+    }
+
+    /* Tombol hamburger ☰ di page-head */
+    .sb-toggle {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 5px;
+        background: none;
+        border: 1px solid var(--theme-border);
+        border-radius: 8px;
+        padding: 8px 10px;
+        cursor: pointer;
+        flex-shrink: 0;
+        order: -1;
+    }
+    .sb-hamburger {
+        display: block;
+        width: 20px;
+        height: 2px;
+        background: var(--ink);
+        border-radius: 2px;
+    }
+
+    /* Main content */
     main {
-        padding: 20px 16px;
+        padding: 16px 14px 48px;
+        min-height: 100vh;
     }
-    .grid2, .grid3, .cards, .cards.cards-3, .rakgrid, .catalog-grid, .split-2col, .wf-steps {
+
+    /* page-head: hamburger kiri, judul kanan */
+    .page-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+    }
+    .page-head-left {
+        flex: 1;
+        min-width: 0;
+    }
+    .page-head h1 {
+        font-size: 20px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .page-head-right {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .context-label {
+        display: none; /* sembunyikan label konteks di mobile, sudah ada di sidebar */
+    }
+
+    /* Grids → 1 kolom */
+    .grid2,
+    .grid3,
+    .rakgrid,
+    .catalog-grid,
+    .split-2col,
+    .wf-steps,
+    .dsn-catalog-layout {
         grid-template-columns: 1fr;
     }
+
+    /* Cards KPI → tetap 2 kolom di mobile (kiri-kanan) */
+    .cards,
+    .cards.cards-3 {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    /* Item card */
     .item {
         grid-template-columns: 1fr;
     }
     .stok {
         text-align: left;
+    }
+
+    /* dsn-summary-panel (panel ringkasan dosen) tidak sticky di mobile */
+    .dsn-summary-panel {
+        position: static;
+    }
+
+    /* Filter bar */
+    .filter > div {
+        min-width: 100%;
+    }
+
+    /* Cards KPI */
+    .cards {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    /* Modal penuh layar di mobile */
+    .dsn-modal {
+        max-width: 100%;
+        border-radius: 12px;
+    }
+}
+
+/* --- Layar sangat kecil (HP kecil < 480px) --- */
+@media (max-width: 480px) {
+    .tabs {
+        gap: 6px;
+    }
+    .tabs a {
+        padding: 7px 12px;
+        font-size: 12.5px;
+    }
+    .btn {
+        padding: 8px 14px;
+        font-size: 13px;
+    }
+    main {
+        padding: 12px 10px 48px;
+    }
+    .page-head h1 {
+        font-size: 18px;
+    }
+    .box {
+        padding: 14px 14px;
+    }
+    /* Cards KPI tetap 2 kolom bahkan di HP kecil */
+    .cards,
+    .cards.cards-3 {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+    .cards > div {
+        padding: 12px 14px;
+    }
+    .cards > div strong {
+        font-size: 26px;
     }
 }

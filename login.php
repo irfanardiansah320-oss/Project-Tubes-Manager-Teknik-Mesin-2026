@@ -10,6 +10,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!hash_equals(csrf(), $_POST['csrf'] ?? '')) {
         $error = 'Sesi habis. Muat ulang halaman lalu coba lagi.';
+    } elseif ($lab === '') {
+        $error = 'Wajib memilih Laboratorium / Lokasi bertugas terlebih dahulu sebelum masuk.';
     } else {
         $users = db()['users'];
         $matchedUser = null;
@@ -39,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'jabatan' => $uJabatan,
                 'nim' => $matchedUser['nim'] ?? '',
                 'nip' => $matchedUser['nip'] ?? '',
-                'lab' => $lab !== '' ? $lab : (!empty($matchedUser['lab']) ? $matchedUser['lab'] : 'Lab Permesinan'),
+                'lab' => $lab,
             ];
             go(home_for($uRole));
         }
@@ -80,14 +82,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <button type="button" class="pw-toggle" data-target="login_pw">Lihat</button>
         </div>
 
-        <label for="laboratorium">Laboratorium / Unit Kerja (Opsional)</label>
-        <select id="laboratorium" name="laboratorium">
-            <option value="">-- Sesuai Penempatan Akun --</option>
-            <option value="Lab Permesinan">Lab Permesinan</option>
-            <option value="Lab Pengelasan &amp; Fabrikasi">Lab Pengelasan &amp; Fabrikasi</option>
-            <option value="Lab CNC &amp; Otomasi">Lab CNC &amp; Otomasi</option>
-            <option value="Lab Uji Bahan &amp; Metrologi">Lab Uji Bahan &amp; Metrologi</option>
-            <option value="Kantor Jurusan Teknik Mesin">Kantor Jurusan Teknik Mesin</option>
+        <label for="laboratorium">Laboratorium / Lokasi Masuk &amp; Bertugas *</label>
+        <select id="laboratorium" name="laboratorium" required>
+            <option value="">-- Pilih Laboratorium / Lokasi Masuk --</option>
+            <?php
+            $daftarPilihanLab = array_merge(LAB_LIST, ['Kantor Jurusan Teknik Mesin']);
+            $selectedLab = $_POST['laboratorium'] ?? '';
+            foreach ($daftarPilihanLab as $lb):
+            ?>
+            <option value="<?= e($lb) ?>"<?= $selectedLab === $lb ? ' selected' : '' ?>><?= e($lb) ?></option>
+            <?php endforeach; ?>
         </select>
 
         <button class="btn wf-btn-staf" type="submit" style="width:100%;padding:11px 20px !important;font-size:14px">Masuk</button>

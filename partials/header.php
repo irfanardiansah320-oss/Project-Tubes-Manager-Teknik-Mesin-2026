@@ -23,9 +23,25 @@ $headerCta = page_header_cta($roleKey, $activeKey, $roleFile, $jabKey);
 <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body class="app role-<?= e($roleKey) ?> jab-<?= e($jabKey) ?>" style="--theme:<?= e($themeInfo['theme']) ?>;--theme-box:<?= e($themeInfo['box']) ?>;--theme-soft:<?= e($themeInfo['soft']) ?>;--theme-border:<?= e($themeInfo['border']) ?>">
+
+<!-- Overlay backdrop untuk mobile sidebar -->
+<div class="sb-overlay" id="sbOverlay" aria-hidden="true"></div>
+
 <div class="shell">
-    <aside class="sidebar" aria-label="Navigasi utama">
+    <aside class="sidebar" id="sidebar" aria-label="Navigasi utama">
+        <!-- Tombol tutup sidebar di mobile -->
+        <button class="sb-close" id="sbClose" aria-label="Tutup menu">&#10005;</button>
+
         <div class="sb-brand">Inventaris Lab</div>
+
+        <!-- Info user di atas sidebar (mobile-style seperti referensi) -->
+        <div class="sb-user-top">
+            <div class="sb-avatar"><?= e(mb_substr($u['nama'], 0, 1)) ?></div>
+            <div class="sb-user-top-info">
+                <div class="sb-user-name"><?= e($u['nama']) ?><?= !empty($u['nim']) ? '<br><small>' . e($u['nim']) . '</small>' : '' ?></div>
+                <div class="sb-user-role"><?= e($themeInfo['role_short']) ?> &middot; <?= e($labName) ?></div>
+            </div>
+        </div>
 
         <nav class="sb-nav" aria-label="Menu utama">
             <?php foreach ($menuGroups as $groupTitle => $groupItems): ?>
@@ -46,17 +62,22 @@ $headerCta = page_header_cta($roleKey, $activeKey, $roleFile, $jabKey);
             <?php endforeach; ?>
         </nav>
 
-        <div class="sb-user">
-            <div class="sb-user-name"><?= e($u['nama']) ?><?= !empty($u['nim']) ? ' · ' . e($u['nim']) : '' ?></div>
-            <div class="sb-user-role"><?= e($themeInfo['role_short']) ?> &middot; <?= e($labName) ?></div>
+        <!-- Tombol Keluar di bawah sidebar (seperti referensi gambar) -->
+        <div class="sb-footer">
             <form action="logout.php" method="post" class="sb-logout-form">
-                <button type="submit" class="sb-logout-btn">Keluar</button>
+                <button type="submit" class="sb-logout-btn">&#8594; Keluar</button>
             </form>
         </div>
     </aside>
 
     <main>
         <div class="page-head">
+            <!-- Hamburger button (muncul hanya di mobile) -->
+            <button class="sb-toggle" id="sbToggle" aria-label="Buka menu navigasi" aria-expanded="false" aria-controls="sidebar">
+                <span class="sb-hamburger"></span>
+                <span class="sb-hamburger"></span>
+                <span class="sb-hamburger"></span>
+            </button>
             <div class="page-head-left">
                 <h1><?= e($title) ?></h1>
                 <span class="mod-pill"><?= e($themeInfo['modul']) ?></span>
@@ -69,3 +90,29 @@ $headerCta = page_header_cta($roleKey, $activeKey, $roleFile, $jabKey);
             </div>
         </div>
         <?php if ($flash): ?><p class="flash <?= e($flash[1]) ?>" role="status"><?= e($flash[0]) ?></p><?php endif; ?>
+<script>
+(function(){
+    var toggle  = document.getElementById('sbToggle');
+    var sidebar = document.getElementById('sidebar');
+    var overlay = document.getElementById('sbOverlay');
+    var closeBtn= document.getElementById('sbClose');
+    function openSidebar(){
+        sidebar.classList.add('open');
+        overlay.classList.add('show');
+        toggle.setAttribute('aria-expanded','true');
+        document.body.classList.add('sb-open');
+    }
+    function closeSidebar(){
+        sidebar.classList.remove('open');
+        overlay.classList.remove('show');
+        toggle.setAttribute('aria-expanded','false');
+        document.body.classList.remove('sb-open');
+    }
+    if(toggle)  toggle.addEventListener('click', openSidebar);
+    if(overlay) overlay.addEventListener('click', closeSidebar);
+    if(closeBtn)closeBtn.addEventListener('click', closeSidebar);
+    // Tutup sidebar saat link menu diklik (mobile UX)
+    var links = sidebar ? sidebar.querySelectorAll('a') : [];
+    links.forEach(function(a){ a.addEventListener('click', closeSidebar); });
+})();
+</script>

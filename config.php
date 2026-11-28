@@ -2112,6 +2112,9 @@ function fitur_masuk() {
             infoBox.style.display = 'none';
             pilihRakBox.style.display = 'none';
             selRakTujuan.required = false;
+            inJumlah.value = '';
+            inCatatan.value = '';
+            if (inPembelianId) inPembelianId.value = '0';
             return;
         }
         const dipesan = +(opt.dataset.dipesan || 0);
@@ -2591,6 +2594,16 @@ function fitur_pengajuan() {
                 f('ukuran_pcs').value = opt.dataset.pcs || 100;
                 f('minimum_baru').value = opt.dataset.min || 0;
                 hitung();
+            } else {
+                f('kode').value = '';
+                f('mata_kuliah').value = '';
+                if (f('lab_tujuan')) f('lab_tujuan').selectedIndex = 0;
+                f('mahasiswa').value = '';
+                f('per_mhs').value = '';
+                f('ukuran_pcs').value = '100';
+                f('minimum_baru').value = '';
+                f('tol').value = '0';
+                hitung();
             }
         });
     }
@@ -2599,6 +2612,9 @@ function fitur_pengajuan() {
         if (o && o.value) {
             f('ukuran_pcs').value = o.dataset.pcs || 1;
             f('minimum_baru').value = o.dataset.min || 0;
+        } else {
+            f('ukuran_pcs').value = '100';
+            f('minimum_baru').value = '';
         }
         hitung();
     });
@@ -3481,6 +3497,7 @@ function fitur_konfirmasi_mhs() {
         $kelas = trim($_POST['kelas'] ?? '');
         $sub = trim($_POST['sub_praktikum'] ?? '');
         $alasanOver = trim($_POST['alasan_overlimit'] ?? '');
+        $jenisKomp = trim($_POST['jenis_kompensasi'] ?? 'pengurangan_nilai');
         $tglOtomatis = date('Y-m-d');
 
         if ($pdId > 0) {
@@ -3511,8 +3528,16 @@ function fitur_konfirmasi_mhs() {
 
         $kompensasi = '';
         if ($jatahMinus > 0) {
-            $nominalDenda = $jatahMinus * $tarifDenda;
-            $kompensasi = "Jatah Minus -{$jatahMinus} {$b['satuan']} (Kompensasi/Denda Rp " . number_format($nominalDenda, 0, ',', '.') . ($alasanOver !== '' ? " - Alasan: $alasanOver" : '') . ")";
+            if ($jenisKomp === 'pengurangan_nilai') {
+                $poinNilai = $jatahMinus * 5;
+                $kompensasi = "Jatah Minus -{$jatahMinus} {$b['satuan']} (Pengurangan Nilai Praktikum: -{$poinNilai} Poin" . ($alasanOver !== '' ? " | Alasan Gagal: $alasanOver" : '') . ")";
+            } elseif ($jenisKomp === 'poin_pelanggaran') {
+                $jamKomp = $jatahMinus * 2;
+                $kompensasi = "Jatah Minus -{$jatahMinus} {$b['satuan']} (Kompensasi Kerja Lab: {$jamKomp} Jam / Poin Disiplin" . ($alasanOver !== '' ? " | Alasan Gagal: $alasanOver" : '') . ")";
+            } else {
+                $nominalDenda = $jatahMinus * $tarifDenda;
+                $kompensasi = "Jatah Minus -{$jatahMinus} {$b['satuan']} (Denda Penggantian: Rp " . number_format($nominalDenda, 0, ',', '.') . ($alasanOver !== '' ? " | Alasan Gagal: $alasanOver" : '') . ")";
+            }
             $tipeAmbil = 'over_limit';
             $ketAmbil = "Pengambilan Over-Limit ($jml/$totalJatah {$b['satuan']} | $kompensasi)";
         } elseif ($sisaAmbil > 0) {
@@ -3666,9 +3691,18 @@ function fitur_konfirmasi_mhs() {
         </div>
 
         <div id="box_overlimit" style="display:none;margin:4px 0 14px;padding:12px 14px;background:var(--bad-bg);border:1px solid #FDA29B;border-radius:10px">
-            <label for="alasan_overlimit" style="color:var(--bad);font-weight:700">Keterangan Kelebihan Jatah (Over-Limit) &amp; Kompensasi/Denda:</label>
-            <input id="alasan_overlimit" name="alasan_overlimit" placeholder="Contoh: Benda kerja gagal bubut / patah sehingga butuh tambahan bahan (siap kompensasi/denda)" style="margin-bottom:4px">
-            <small style="color:var(--bad);display:block;font-size:12px">Sesuai aturan laboratorium, penggunaan bahan melebihi batas jatah dicatat sebagai <strong>Jatah Minus</strong> dan dikenakan kewajiban penggantian/kompensasi (Rp <?= number_format($tarifDenda, 0, ',', '.') ?>/satuan lebih).</small>
+            <div style="font-weight:700;color:var(--bad);margin-bottom:8px">Pemberitahuan Over-Limit / Bahan Tambahan Akibat Benda Kerja Gagal:</div>
+            <div style="margin-bottom:8px">
+                <label for="jenis_kompensasi" style="color:var(--bad);font-weight:600;font-size:13px">Skema Kompensasi Kegagalan (Pilih salah satu):</label>
+                <select id="jenis_kompensasi" name="jenis_kompensasi" style="background:#fff">
+                    <option value="pengurangan_nilai">Pengurangan Nilai Praktikum (-5 Poin Praktikum per unit over-limit)</option>
+                    <option value="poin_pelanggaran">Poin Pelanggaran / Jam Kompensasi Lab (2 Jam kompensasi per unit over-limit)</option>
+                    <option value="denda_finansial">Penggantian Biaya Bahan / Denda Finansial (Rp <?= number_format($tarifDenda, 0, ',', '.') ?>/satuan)</option>
+                </select>
+            </div>
+            <label for="alasan_overlimit" style="color:var(--bad);font-weight:600;font-size:13px">Keterangan / Alasan Kegagalan Benda Kerja:</label>
+            <input id="alasan_overlimit" name="alasan_overlimit" placeholder="Contoh: Benda kerja gagal bubut / patah saat pengerjaan (bersedia kompensasi)" style="margin-bottom:4px;background:#fff">
+            <small style="color:var(--bad);display:block;font-size:12px">Sesuai notulensi laboratorium: pengambilan melebihi jatah standar dicatat sebagai <strong>Jatah Minus</strong> dan dikenakan kompensasi pengurangan nilai, jam kerja lab, atau denda penggantian bahan.</small>
         </div>
 
         <label style="display:flex;align-items:center;gap:8px;margin:8px 0 14px;cursor:pointer;font-weight:600;color:var(--ink)">
@@ -3704,7 +3738,7 @@ function fitur_konfirmasi_mhs() {
         }
 
         if (jatah <= 0) {
-            outSisa.value = '-';
+            outSisa.value = '';
             outSisa.style.color = '';
             if (boxOver) boxOver.style.display = 'none';
             infoAmbil.textContent = 'Pilih kegiatan praktikum untuk memuat bahan dan batas jatah secara otomatis.';
@@ -3726,7 +3760,7 @@ function fitur_konfirmasi_mhs() {
             outSisa.value = 'Minus -' + minus + ' ' + satuan + ' (Over-Limit)';
             outSisa.style.color = '#dc2626';
             if (boxOver) boxOver.style.display = 'block';
-            infoAmbil.textContent = `Over-Limit (Melebihi Jatah): Anda mengambil ${ambil} ${satuan} dari jatah ${jatah} ${satuan}. Tercatat Jatah Minus -${minus} ${satuan} dengan estimasi kompensasi/denda Rp ${denda.toLocaleString('id-ID')}.`;
+            infoAmbil.textContent = `Over-Limit (Melebihi Jatah): Anda mengambil ${ambil} ${satuan} dari jatah ${jatah} ${satuan}. Tercatat Jatah Minus -${minus} ${satuan} (Dikenakan skema kompensasi: pengurangan -${minus * 5} poin nilai, ${minus * 2} jam kerja lab, atau denda penggantian Rp ${denda.toLocaleString('id-ID')}).`;
         } else if (sisa === 0) {
             outSisa.value = '0 (Tepat Jatah / Lunas)';
             outSisa.style.color = '#16a34a';
@@ -3757,8 +3791,11 @@ function fitur_konfirmasi_mhs() {
                 if (inNamaBahan) inNamaBahan.value = '';
                 if (inKelas) inKelas.value = '';
                 if (inSub) inSub.value = '';
-                inJatah.value = '';
-                inJml.value = '';
+                if (inJatah) inJatah.value = '';
+                if (inJml) inJml.value = '';
+                const inAlasan = document.getElementById('alasan_overlimit');
+                if (inAlasan) inAlasan.value = '';
+                if (boxOver) boxOver.style.display = 'none';
                 syncAmbil();
             }
         });
